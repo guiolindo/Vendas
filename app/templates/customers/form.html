@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% from "_macros.html" import field, csrf %}
+{% block title %}{{ 'Editar cliente' if customer else 'Novo cliente' }}{% endblock %}
+{% block content %}
+{% set v = values %}
+<div class="page-head"><div><a class="crumb" href="{{ url_for('customers.detail', customer_id=customer.id) if customer else url_for('customers.index') }}">‹ {{ customer.name if customer else 'Clientes' }}</a>
+  <h1>{{ 'Editar cliente' if customer else 'Novo cliente' }}</h1></div></div>
+<form method="post" class="panel form-narrow" novalidate><div class="body">
+  {{ csrf() }}
+  {{ field('Nome', 'name', v, error_field, customer.name if customer else '', required=true, attrs='autofocus maxlength="160"') }}
+  {{ field('Telefone', 'phone', v, error_field, customer.phone or '' if customer else '', type='tel') }}
+  <details class="more" {% if customer and (customer.document or customer.address or customer.notes) or error_field in ('document','address') %}open{% endif %}><summary>Documento, endereço e observações</summary>
+    <div class="inner">
+      {{ field('CPF ou CNPJ', 'document', v, error_field, customer.document or '' if customer else '') }}
+      {{ field('Endereço', 'address', v, error_field, customer.address or '' if customer else '') }}
+      <div class="field"><label for="f-notes">Observações <span class="hint">(opcional)</span></label><textarea id="f-notes" name="notes">{{ v.get('notes', customer.notes or '' if customer else '') }}</textarea></div>
+    </div></details>
+  {% if customer %}<label style="font-weight:400;margin-top:1rem"><input type="checkbox" name="active" {% if (not v and customer.active) or v.get('active') %}checked{% endif %}> Cliente ativo</label>{% endif %}
+  <div class="form-foot"><button class="btn primary" type="submit">{{ 'Salvar alterações' if customer else 'Cadastrar cliente' }}</button>
+    <a class="btn ghost" href="{{ url_for('customers.detail', customer_id=customer.id) if customer else url_for('customers.index') }}">Cancelar</a></div>
+</div></form>
+{% endblock %}

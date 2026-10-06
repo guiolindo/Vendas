@@ -1,0 +1,88 @@
+{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed %}
+{% block title %}Início{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Início</h1><p>{{ today.strftime('%d/%m/%Y') }}</p></div>
+  <div class="actions"><a class="btn primary" href="{{ url_for('sales.new') }}">{{ icon('plus') }} Nova venda</a></div>
+</div>
+
+<section class="ledger" aria-label="Resumo">
+  <div><span class="label">Vendido hoje</span><span class="value">{{ d.sold_today|brl }}</span>
+    <span class="sub">{{ d.sales_today }} {{ 'venda' if d.sales_today == 1 else 'vendas' }}</span></div>
+  <div><span class="label">Vendido no mês</span><span class="value">{{ d.sold_month|brl }}</span>
+    <span class="sub">{{ d.sales_month }} {{ 'venda' if d.sales_month == 1 else 'vendas' }}</span></div>
+  <div class="in"><span class="label">Recebido no mês</span><span class="value">{{ d.received_month|brl }}</span>
+    <span class="sub">{{ d.received_today|brl }} hoje</span></div>
+  <a href="{{ url_for('collections.index', aba='abertos') }}"><span class="label">A receber</span><span class="value">{{ d.receivable|brl }}</span>
+    <span class="sub">{{ d.due_today|brl }} vence hoje · {{ d.due_soon|brl }} em 7 dias</span></a>
+  <a href="{{ url_for('collections.index', aba='vencidos') }}" class="{{ 'alert' if d.overdue else '' }}"><span class="label">Vencido</span><span class="value">{{ d.overdue|brl }}</span>
+    <span class="sub">{% if d.overdue %}{{ d.overdue_customers }} {{ 'cliente' if d.overdue_customers == 1 else 'clientes' }} em atraso{% else %}Nada em atraso{% endif %}</span></a>
+</section>
+
+<div class="cols wide-left" style="margin-top:1rem">
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Atrasados para cobrar</h2><a href="{{ url_for('collections.index', aba='vencidos') }}" class="small">Ver todos</a></header>
+      {% if d.overdue_sales %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Cliente</th><th>Venceu</th><th class="right">Falta pagar</th><th></th></tr></thead>
+        <tbody>{% for s in d.overdue_sales %}
+          <tr><td><a href="{{ url_for('customers.detail', customer_id=s.customer_id) }}">{{ s.customer.name }}</a><span class="sub">Venda #{{ s.id }}</span></td>
+              <td>{{ s.due_date|data_curta }}<span class="sub owe-late">{{ s.due_date|due_hint }}</span></td>
+              <td class="right">{{ owed(s) }}</td>
+              <td class="right"><a class="btn small" href="{{ url_for('sales.detail', sale_id=s.id) }}#receber">Receber</a></td></tr>
+        {% endfor %}</tbody></table></div>
+      {% else %}<div class="empty"><strong>Nenhum atraso.</strong>Tudo o que venceu até hoje foi pago.</div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <header><h2>Clientes com saldo a pagar</h2><a href="{{ url_for('customers.index', mostrar='devendo') }}" class="small">Ver todos</a></header>
+      {% if d.debtors %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Cliente</th><th class="right">Deve</th><th class="right">Vencido</th></tr></thead>
+        <tbody>{% for r in d.debtors %}
+          <tr><td><a href="{{ url_for('customers.detail', customer_id=r.customer.id) }}">{{ r.customer.name }}</a><span class="sub">{{ r.open_sales }} {{ 'venda em aberto' if r.open_sales == 1 else 'vendas em aberto' }}</span></td>
+              <td class="right money">{{ r.pending|brl }}</td>
+              <td class="right money {{ 'owe-late' if r.overdue else 'muted' }}">{{ r.overdue|brl if r.overdue else '—' }}</td></tr>
+        {% endfor %}</tbody></table></div>
+      {% else %}<div class="empty"><strong>Ninguém está devendo.</strong></div>{% endif %}
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Mais vendidos no mês</h2><a href="{{ url_for('reports.show', key='produtos') }}" class="small">Relatório</a></header>
+      {% if d.top_products %}
+      <div class="table-wrap"><table><tbody>
+        {% set top = d.top_products[0].qty %}
+        {% for p in d.top_products %}
+        <tr><td><a href="{{ url_for('products.detail', product_id=p.product_id) }}">{{ p.product_name }}</a>
+              <div class="progress"><span style="width: {{ p.qty * 100 // top }}%; background: var(--primary)"></span></div></td>
+            <td class="right num">{{ p.qty }} un.<span class="sub">{{ p.revenue|brl }}</span></td></tr>
+        {% endfor %}</tbody></table></div>
+      {% else %}<div class="empty">Ainda não há vendas neste mês.</div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <header><h2>Estoque acabando</h2><a href="{{ url_for('products.index', estoque='baixo') }}" class="small">Ver produtos</a></header>
+      {% if d.low_stock %}
+      <div class="table-wrap"><table><tbody>{% for p in d.low_stock %}
+        <tr><td><a href="{{ url_for('products.detail', product_id=p.id) }}">{{ p.name }}</a></td>
+            <td class="right">{% if p.stock_qty == 0 %}<span class="badge zerado">Acabou</span>{% else %}<span class="badge baixo">{{ p.stock_qty }} {{ p.unit }}</span>{% endif %}
+              <span class="sub">mínimo {{ p.min_stock }}</span></td></tr>
+      {% endfor %}</tbody></table></div>
+      {% else %}<div class="empty">Nenhum produto abaixo do mínimo.</div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <header><h2>Últimos recebimentos</h2></header>
+      {% if d.recent_payments %}
+      <div class="table-wrap"><table><tbody>{% for p in d.recent_payments %}
+        <tr><td>{{ p.sale.customer.name if p.sale.customer else 'Consumidor' }}<span class="sub">{{ p.paid_at|data_curta }} · {{ p.method|method_label }} · <a href="{{ url_for('sales.detail', sale_id=p.sale_id) }}">Venda #{{ p.sale_id }}</a></span></td>
+            <td class="right money in-money">{{ p.amount_cents|brl }}</td></tr>
+      {% endfor %}</tbody></table></div>
+      {% else %}<div class="empty">Nenhum pagamento registrado ainda.</div>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

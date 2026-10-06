@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml"><title>Entrar · Vendas</title><link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"></head>
+<body><div class="auth"><form class="panel" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="brand"><span class="brand-mark">V</span> Vendas</div>
+  <h1>Entrar</h1>
+  {% for category, message in get_flashed_messages(with_categories=true) %}<div class="alert-box" role="alert">{{ message }}</div>{% endfor %}
+  <div class="field"><label for="u">Usuário</label><input id="u" name="username" autocomplete="username" autofocus required></div>
+  <div class="field"><label for="p">Senha</label><input id="p" name="password" type="password" autocomplete="current-password" required></div>
+  <button class="btn primary" style="width:100%" type="submit">Entrar</button>
+</form></div></body></html>

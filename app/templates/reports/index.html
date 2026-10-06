@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% from "_macros.html" import icon %}
+{% block title %}Relatórios{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Relatórios</h1><p>Escolha um relatório. Todos podem ser filtrados e exportados para Excel.</p></div></div>
+<section class="panel"><div class="table-wrap"><table><tbody>
+  {% for key, (title, desc) in catalog.items() %}
+  <tr class="row-link" data-href="{{ url_for('reports.show', key=key) }}"><td style="width:18rem"><a href="{{ url_for('reports.show', key=key) }}"><strong>{{ title }}</strong></a></td><td class="muted">{{ desc }}</td></tr>
+  {% endfor %}
+  <tr class="row-link" data-href="{{ url_for('reports.show', key='a-receber', situacao='vencido') }}"><td><a href="{{ url_for('reports.show', key='a-receber', situacao='vencido') }}"><strong>Valores vencidos</strong></a></td><td class="muted">Atalho: a receber, só o que já venceu.</td></tr>
+  <tr class="row-link" data-href="{{ url_for('reports.show', key='a-receber', situacao='parcial') }}"><td><a href="{{ url_for('reports.show', key='a-receber', situacao='parcial') }}"><strong>Vendas parcialmente pagas</strong></a></td><td class="muted">Atalho: a receber, só as que já tiveram algum pagamento.</td></tr>
+</tbody></table></div></section>
+{% endblock %}

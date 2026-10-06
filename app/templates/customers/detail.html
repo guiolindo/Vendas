@@ -1,0 +1,78 @@
+{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, due, progress, csrf %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><a class="crumb" href="{{ url_for('customers.index') }}">‹ Clientes</a>
+  <h1>{{ customer.name }} {% if not customer.active %}<span class="badge inativo">Inativo</span>{% endif %}</h1>
+  <p>{{ customer.phone or 'Sem telefone' }}{% if customer.document %} · {{ customer.document }}{% endif %}{% if customer.address %} · {{ customer.address }}{% endif %}</p></div>
+  <div class="actions"><a class="btn" href="{{ url_for('customers.edit', customer_id=customer.id) }}">{{ icon('edit') }} Editar</a>
+    {% if customer.active %}<a class="btn primary" href="{{ url_for('sales.new', cliente=customer.id) }}">{{ icon('plus') }} Nova venda</a>{% endif %}</div></div>
+
+<section class="ledger compact" aria-label="Extrato">
+  <div><span class="label">Já comprou</span><span class="value">{{ s.bought|brl }}</span><span class="sub">{{ sales|rejectattr('cancelled')|list|length }} vendas · última em {{ s.last_sale|data }}</span></div>
+  <div class="in"><span class="label">Já pagou</span><span class="value">{{ s.paid|brl }}</span></div>
+  <div><span class="label">Ainda deve</span><span class="value">{{ s.pending|brl }}</span><span class="sub">{{ s.open_sales }} {{ 'venda em aberto' if s.open_sales == 1 else 'vendas em aberto' }}</span></div>
+  <div class="{{ 'alert' if s.overdue else '' }}"><span class="label">Vencido</span><span class="value">{{ s.overdue|brl }}</span><span class="sub">{{ 'Precisa de cobrança' if s.overdue else 'Nada em atraso' }}</span></div>
+</section>
+
+<div class="cols wide-left">
+  <div class="stack">
+    {% if open_sales %}
+    <section class="panel" id="em-aberto">
+      <header><h2>Vendas em aberto</h2><span class="small muted">Da mais antiga para a mais nova</span></header>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Venda</th><th>Vencimento</th><th class="right">Pago</th><th class="right">Falta pagar</th><th>Situação</th></tr></thead>
+        <tbody>{% for sale in open_sales %}<tr class="row-link" data-href="{{ url_for('sales.detail', sale_id=sale.id) }}">
+          <td><a href="{{ url_for('sales.detail', sale_id=sale.id) }}">#{{ sale.id }}</a><span class="sub">{{ sale.sale_date|data }}</span></td>
+          <td>{{ due(sale) }}</td>
+          <td class="right money">{{ sale.paid_cents|brl }} <span class="sub">de {{ sale.total_cents|brl }}</span>{{ progress(sale.paid_cents, sale.total_cents) }}</td>
+          <td class="right">{{ owed(sale) }}</td><td>{{ badge(sale.status) }}</td></tr>{% endfor %}</tbody></table></div>
+    </section>
+    {% endif %}
+    <section class="panel">
+      <header><h2>Todas as compras</h2></header>
+      {% if sales %}<div class="table-wrap"><table>
+        <thead><tr><th>Venda</th><th>Data</th><th class="right">Total</th><th class="right">Falta pagar</th><th>Situação</th></tr></thead>
+        <tbody>{% for sale in sales %}<tr class="row-link" data-href="{{ url_for('sales.detail', sale_id=sale.id) }}">
+          <td><a href="{{ url_for('sales.detail', sale_id=sale.id) }}">#{{ sale.id }}</a></td><td>{{ sale.sale_date|data }}</td>
+          <td class="right money">{{ sale.total_cents|brl }}</td><td class="right">{{ owed(sale) }}</td><td>{{ badge(sale.status) }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="empty"><strong>Ainda não comprou nada.</strong></div>{% endif %}
+    </section>
+  </div>
+  <div class="stack">
+    {% if s.pending > 0 %}
+    <section class="panel" id="receber">
+      <header><h2>Receber pagamento</h2></header>
+      <div class="body">
+        <form method="post" action="{{ url_for('customers.receive', customer_id=customer.id) }}" data-receive>
+          {{ csrf() }}
+          <div class="field"><label for="amount">Valor recebido</label>
+            <div class="money-input"><input id="amount" name="amount" inputmode="decimal" autocomplete="off" required placeholder="0,00" data-max="{{ s.pending }}"></div>
+            <p class="help">Ele paga primeiro o que venceu antes. <button type="button" class="link-button" data-fill="{{ s.pending|brl_plain }}">Receber tudo ({{ s.pending|brl }})</button></p></div>
+          <div class="grid">
+            <div class="field"><label for="method">Forma</label><select id="method" name="method">{% for k, l in methods.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+            <div class="field"><label for="paid_at">Data</label><input id="paid_at" type="date" name="paid_at" value="{{ today|iso }}" max="{{ today|iso }}"></div>
+          </div>
+          <div class="field" style="margin-top:.875rem"><label for="note">Observação <span class="hint">(opcional)</span></label><input id="note" name="note" maxlength="255"></div>
+          <button class="btn primary" type="submit" style="width:100%">Registrar pagamento</button>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+    <section class="panel">
+      <header><h2>Pagamentos recebidos</h2></header>
+      {% if payments %}<div class="table-wrap"><table>
+        <thead><tr><th>Data</th><th>Forma</th><th class="right">Valor</th></tr></thead>
+        <tbody>{% for p in payments %}<tr><td>{{ p.paid_at|data_curta }}<span class="sub"><a href="{{ url_for('sales.detail', sale_id=p.sale_id) }}">Venda #{{ p.sale_id }}</a></span></td>
+          <td>{{ p.method|method_label }}{% if p.note %}<span class="sub">{{ p.note }}</span>{% endif %}</td><td class="right money in-money">{{ p.amount_cents|brl }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="empty">Nenhum pagamento ainda.</div>{% endif %}
+    </section>
+    {% if customer.notes %}<section class="panel"><header><h2>Observações</h2></header><div class="body">{{ customer.notes }}</div></section>{% endif %}
+    <section class="panel"><header><h2>Cadastro</h2></header><div class="body actions">
+      <form method="post" action="{{ url_for('customers.toggle', customer_id=customer.id) }}" class="inline-form">{{ csrf() }}<input type="hidden" name="active" value="{{ '0' if customer.active else '1' }}">
+        <button class="btn" type="submit">{{ 'Desativar cliente' if customer.active else 'Reativar cliente' }}</button></form>
+      <form method="post" action="{{ url_for('customers.delete', customer_id=customer.id) }}" class="inline-form" data-confirm="Excluir {{ customer.name }}? Isso não pode ser desfeito.">{{ csrf() }}
+        <button class="btn danger" type="submit">{{ icon('trash') }} Excluir</button></form>
+      <p class="small muted" style="width:100%">Clientes com vendas não podem ser excluídos, apenas desativados.</p></div></section>
+  </div>
+</div>
+{% endblock %}

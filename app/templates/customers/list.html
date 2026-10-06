@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% from "_macros.html" import icon, pager, remembered_bar %}
+{% block title %}Clientes{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Clientes</h1></div>
+  <div class="actions"><a class="btn primary" href="{{ url_for('customers.new') }}">{{ icon('plus') }} Novo cliente</a></div></div>
+<section class="panel">
+  {{ remembered_bar(remembered) }}
+  <form class="filters" method="get">
+    <div class="field grow"><label for="q">Buscar</label><input id="q" name="q" value="{{ args.get('q','') }}" placeholder="Nome, telefone ou documento" data-search></div>
+    <div class="field"><label for="mostrar">Mostrar</label><select id="mostrar" name="mostrar">
+      <option value="">Todos</option><option value="devendo" {{ 'selected' if args.get('mostrar') == 'devendo' }}>Com saldo a pagar</option><option value="vencidos" {{ 'selected' if args.get('mostrar') == 'vencidos' }}>Em atraso</option></select></div>
+    <div class="field"><label for="status">Cadastro</label><select id="status" name="status">
+      <option value="">Ativos</option><option value="inativos" {{ 'selected' if args.get('status') == 'inativos' }}>Inativos</option><option value="todos" {{ 'selected' if args.get('status') == 'todos' }}>Todos</option></select></div>
+    <button class="btn" type="submit">Filtrar</button>
+    {% if args %}<a class="btn ghost" href="?limpar=1">Limpar</a>{% endif %}
+  </form>
+  {% if page.items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Cliente</th><th>Telefone</th><th class="right">Comprou</th><th class="right">Deve</th><th class="right">Vencido</th><th>Última compra</th></tr></thead>
+    <tbody>{% for r in page.items %}
+    <tr class="row-link" data-href="{{ url_for('customers.detail', customer_id=r.customer.id) }}">
+      <td><a href="{{ url_for('customers.detail', customer_id=r.customer.id) }}">{{ r.customer.name }}</a>{% if not r.customer.active %} <span class="badge inativo">Inativo</span>{% endif %}</td>
+      <td class="muted">{{ r.customer.phone or '—' }}</td>
+      <td class="right money">{{ r.bought|brl }}</td>
+      <td class="right money">{{ r.pending|brl if r.pending else '—' }}</td>
+      <td class="right money {{ 'owe-late' if r.overdue else 'muted' }}">{{ r.overdue|brl if r.overdue else '—' }}</td>
+      <td>{{ r.last_sale|data }}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty"><strong>Nenhum cliente encontrado.</strong>{% if not args %}Cadastre clientes aqui ou direto na tela de venda.{% endif %}</div>{% endif %}
+  {{ pager(page) }}
+</section>
+{% endblock %}

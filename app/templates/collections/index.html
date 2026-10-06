@@ -1,0 +1,54 @@
+{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, due, progress, pager, remembered_bar, csrf %}
+{% block title %}Cobranças{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Cobranças</h1><p>O que venceu, o que vence e o que já foi pago.</p></div></div>
+
+<nav class="tabs" aria-label="Situação das cobranças">
+  {% set cls = {'vencidos': 'late', 'hoje': 'soon', 'proximos': '', 'parciais': '', 'pagos': 'done', 'abertos': ''} %}
+  {% for key, label in tabs %}
+  {% set sm = summary.get(key) %}
+  <a class="tab {{ cls[key] }}" href="{{ qs(aba=key, pagina=None) }}" {% if tab == key %}aria-current="true"{% endif %}>
+    <span class="t-label">{{ label }}</span>
+    <span class="t-value">{{ sm.cents|brl }}</span><span class="t-count">{{ sm.count }} {{ 'venda' if sm.count == 1 else 'vendas' }}</span>
+  </a>
+  {% endfor %}
+</nav>
+
+<section class="panel">
+  {{ remembered_bar(remembered) }}
+  <form class="filters" method="get">
+    <input type="hidden" name="aba" value="{{ tab }}">
+    <div class="field"><label for="cliente">Cliente</label><select id="cliente" name="cliente"><option value="">Todos</option>
+      {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if args.get('cliente') == c.id|string }}>{{ c.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="venc_de">Vence de</label><input id="venc_de" type="date" name="venc_de" value="{{ args.get('venc_de','') }}"></div>
+    <div class="field"><label for="venc_ate">Vence até</label><input id="venc_ate" type="date" name="venc_ate" value="{{ args.get('venc_ate','') }}"></div>
+    <div class="field narrow"><label for="min">Valor mínimo</label><input id="min" name="min" value="{{ args.get('min','') }}" inputmode="decimal" placeholder="0,00"></div>
+    <div class="field narrow"><label for="max">Valor máximo</label><input id="max" name="max" value="{{ args.get('max','') }}" inputmode="decimal" placeholder="0,00"></div>
+    <button class="btn" type="submit">Filtrar</button>
+    {% if args.keys()|reject('equalto', 'aba')|list %}<a class="btn ghost" href="?limpar=1&aba={{ tab }}">Limpar</a>{% endif %}
+  </form>
+  {% for e in errors %}<div class="alert-box" style="margin:1rem">{{ e }} O filtro foi ignorado.</div>{% endfor %}
+  {% if page.items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Cliente</th><th>Venda</th><th>Vencimento</th><th class="right">Total</th><th class="right">Pago</th>
+      <th class="right">{{ 'Falta pagar' if tab != 'pagos' else '' }}</th><th>Situação</th><th class="no-print"></th></tr></thead>
+    <tbody>{% for s in page.items %}<tr>
+      <td>{% if s.customer %}<a href="{{ url_for('customers.detail', customer_id=s.customer_id) }}">{{ s.customer.name }}</a>{% else %}Consumidor{% endif %}</td>
+      <td><a href="{{ url_for('sales.detail', sale_id=s.id) }}">#{{ s.id }}</a><span class="sub">{{ s.sale_date|data_curta }}</span></td>
+      <td>{{ due(s) }}</td>
+      <td class="right money">{{ s.total_cents|brl }}</td>
+      <td class="right money">{{ s.paid_cents|brl if s.paid_cents else '—' }}{% if s.paid_cents and s.remaining_cents %}{{ progress(s.paid_cents, s.total_cents) }}{% endif %}</td>
+      <td class="right">{% if tab != 'pagos' %}{{ owed(s) }}{% endif %}</td>
+      <td>{{ badge(s.status) }}</td>
+      <td class="right no-print">{% if s.remaining_cents > 0 %}
+        <details class="inline-pay"><summary class="btn small">Receber</summary>
+          <form method="post" action="{{ url_for('sales.add_payment', sale_id=s.id) }}" class="pay-form">{{ csrf() }}
+            <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+            <div class="field"><label>Valor</label><div class="money-input"><input name="amount" inputmode="decimal" required value="{{ s.remaining_cents|brl_plain }}" data-max="{{ s.remaining_cents }}"></div></div>
+            <div class="field"><label>Forma</label><select name="method">{% for k, l in methods.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+            <button class="btn primary small" type="submit">Registrar</button></form></details>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty"><strong>{{ {'vencidos': 'Nenhum valor vencido.', 'hoje': 'Nada vence hoje.', 'proximos': 'Nada vence nos próximos 7 dias.', 'parciais': 'Nenhuma venda com pagamento parcial.', 'pagos': 'Nenhuma venda paga.', 'abertos': 'Nada em aberto.'}[tab] }}</strong>{% if args.keys()|reject('equalto', 'aba')|list %}Tente tirar algum filtro.{% endif %}</div>{% endif %}
+  {{ pager(page) }}
+</section>
+{% endblock %}

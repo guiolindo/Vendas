@@ -1,0 +1,113 @@
+import uuid
+
+from flask import (Blueprint, current_app, flash, jsonify, redirect,
+                   render_template, request, url_for)
+from sqlalchemy import select
+
+from .. import clock
+from ..config import Config
+from ..domain.money import format_brl
+from ..errors import BusinessError
+from ..models import Customer, Payment, Sale
+from ..repositories import sales as repo
+from ..repositories.common import paginate
+from ..schemas.inputs import sale_from_json
+from ..schemas.parsing import Form
+from ..services import payments, sales as svc
+from ..domain.status import Status
+from .helpers import (current_user_id, db, handle_business_errors, page_number,
+                      remembered_args, safe_next)
+
+bp = Blueprint("sales", __name__)
+FILTERS = ("q", "status", "de", "ate")
+
+
+@bp.get("/vendas")
+def index():
+    args, remembered = remembered_args("vendas", FILTERS)
+    f = repo.SaleFilters(q=args.get("q", ""), status=args.get("status", "") if args.get("status") in {s.value for s in Status} else "",
+                         date_from=_date(args.get("de")), date_to=_date(args.get("ate")))
+    page = paginate(db(), repo.sales_query(f, clock.today()), page_number(), 25)
+    return render_template("sales/list.html", page=page, args=args, remembered=remembered,
+                           statuses=[s for s in Status])
+
+
+def _date(raw):
+    return Form({"d": raw or ""}).date("d", "Data") if raw else None
+
+
+@bp.get("/vendas/nova")
+def new():
+    import datetime
+    return render_template("sales/new.html", token=uuid.uuid4().hex,
+                           default_due=(clock.today() + datetime.timedelta(days=current_app.config["DEFAULT_DUE_DAYS"])).isoformat())
+
+
+@bp.post("/vendas/nova")
+def create():
+    """Recebe a venda em JSON e responde em JSON, para a tela manter o carrinho em caso de erro."""
+    payload = request.get_json(silent=True) or {}
+    try:
+        sale = svc.create_sale(db(), sale_from_json(payload), current_user_id())
+    except BusinessError as e:
+        return jsonify(ok=False, message=e.message, field=e.field), 422
+    current_app.logger.info("venda #%s total=%s por usuario=%s", sale.id, sale.total_cents, current_user_id())
+    flash(f"Venda #{sale.id} registrada com sucesso.", "success")
+    return jsonify(ok=True, redirect=url_for("sales.detail", sale_id=sale.id))
+
+
+@bp.get("/vendas/<int:sale_id>")
+def detail(sale_id: int):
+    sale = db().get(Sale, sale_id)
+    if sale is None:
+        flash("Venda não encontrada.", "error")
+        return redirect(url_for("sales.index"))
+    return render_template("sales/detail.html", sale=sale)
+
+
+@bp.route("/vendas/<int:sale_id>/editar", methods=["GET", "POST"])
+def edit(sale_id: int):
+    sale = db().get(Sale, sale_id)
+    if sale is None:
+        flash("Venda não encontrada.", "error")
+        return redirect(url_for("sales.index"))
+    if request.method == "POST":
+        f = Form(request.form)
+        try:
+            svc.update_sale(db(), sale_id, f.optional_int("customer_id"), f.date("due_date", "Vencimento"),
+                            f.text("notes") or None)
+        except BusinessError as e:
+            flash(e.message, "error")
+            return render_template("sales/edit.html", sale=sale, values=request.form, error_field=e.field), 422
+        flash("Venda atualizada.", "success")
+        return redirect(url_for("sales.detail", sale_id=sale_id))
+    customers = list(db().scalars(select(Customer).where(Customer.active.is_(True)).order_by(Customer.name)))
+    return render_template("sales/edit.html", sale=sale, values={}, error_field=None, customers=customers)
+
+
+@bp.post("/vendas/<int:sale_id>/pagamentos")
+@handle_business_errors
+def add_payment(sale_id: int):
+    f = Form(request.form)
+    payment = payments.register_payment(
+        db(), sale_id, f.money("amount", "Valor", required=True), f.text("method"),
+        f.date("paid_at", "Data do pagamento"), f.text("note") or None, current_user_id())
+    flash(f"Pagamento de {format_brl(payment.amount_cents)} registrado.", "success")
+    return redirect(safe_next(request.form.get("next"), url_for("sales.detail", sale_id=sale_id)))
+
+
+@bp.post("/vendas/<int:sale_id>/cancelar")
+@handle_business_errors
+def cancel(sale_id: int):
+    svc.cancel_sale(db(), sale_id, request.form.get("reason", ""), current_user_id())
+    current_app.logger.info("venda #%s cancelada por usuario=%s", sale_id, current_user_id())
+    flash(f"Venda #{sale_id} cancelada. O estoque foi devolvido.", "success")
+    return redirect(url_for("sales.detail", sale_id=sale_id))
+
+
+@bp.post("/pagamentos/<int:payment_id>/estornar")
+@handle_business_errors
+def void_payment(payment_id: int):
+    payment = payments.void_payment(db(), payment_id, request.form.get("reason"), current_user_id())
+    flash(f"Pagamento de {format_brl(payment.amount_cents)} estornado. O registro continua no histórico.", "success")
+    return redirect(url_for("sales.detail", sale_id=payment.sale_id))

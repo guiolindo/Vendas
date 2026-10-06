@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, due, pager, remembered_bar %}
+{% block title %}Vendas{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Vendas</h1></div>
+  <div class="actions"><a class="btn primary" href="{{ url_for('sales.new') }}">{{ icon('plus') }} Nova venda</a></div></div>
+<section class="panel">
+  {{ remembered_bar(remembered) }}
+  <form class="filters" method="get">
+    <div class="field grow"><label for="q">Buscar</label><input id="q" name="q" value="{{ args.get('q','') }}" placeholder="Nome do cliente ou nº da venda" data-search></div>
+    <div class="field"><label for="status">Situação</label><select id="status" name="status"><option value="">Todas</option>
+      {% for s in statuses %}<option value="{{ s.value }}" {{ 'selected' if args.get('status') == s.value }}>{{ s|status_label }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="de">De</label><input id="de" type="date" name="de" value="{{ args.get('de','') }}"></div>
+    <div class="field"><label for="ate">Até</label><input id="ate" type="date" name="ate" value="{{ args.get('ate','') }}"></div>
+    <button class="btn" type="submit">Filtrar</button>
+    {% if args %}<a class="btn ghost" href="?limpar=1">Limpar</a>{% endif %}
+  </form>
+  {% if page.items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Venda</th><th>Cliente</th><th>Vencimento</th><th class="right">Total</th><th class="right">Pago</th><th class="right">Falta pagar</th><th>Situação</th></tr></thead>
+    <tbody>{% for s in page.items %}
+    <tr class="row-link" data-href="{{ url_for('sales.detail', sale_id=s.id) }}">
+      <td><a href="{{ url_for('sales.detail', sale_id=s.id) }}">#{{ s.id }}</a><span class="sub">{{ s.sale_date|data }}</span></td>
+      <td>{{ s.customer.name if s.customer else 'Consumidor' }}</td>
+      <td>{{ due(s) }}</td>
+      <td class="right money">{{ s.total_cents|brl }}</td>
+      <td class="right money">{{ s.paid_cents|brl if s.paid_cents else '—' }}</td>
+      <td class="right">{{ owed(s) }}</td>
+      <td>{{ badge(s.status) }}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty"><strong>Nenhuma venda encontrada.</strong>{% if not args %}Registre a primeira venda em “Nova venda”.{% else %}Tente tirar algum filtro.{% endif %}</div>{% endif %}
+  {{ pager(page) }}
+</section>
+{% endblock %}

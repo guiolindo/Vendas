@@ -1,0 +1,82 @@
+{% extends "base.html" %}{% from "_macros.html" import icon %}
+{% block title %}Nova venda{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Nova venda</h1></div>
+  <div class="kbd-hints no-print"><span><kbd>/</kbd> buscar produto</span><span><kbd>Enter</kbd> adiciona</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> concluir</span></div></div>
+
+<div class="pos" id="pos" data-token="{{ token }}" data-default-due="{{ default_due }}" data-today="{{ today|iso }}"
+     data-api-products="{{ url_for('api.products') }}" data-api-customers="{{ url_for('api.customers') }}"
+     data-preselect="{{ request.args.get('cliente', '') }}">
+
+  <div class="pos-left">
+    <section class="panel">
+      <div class="body">
+        <div class="search-box">{{ icon('search') }}
+          <input id="product-search" type="search" autocomplete="off" placeholder="Buscar produto por nome, código ou SKU" aria-label="Buscar produto"
+                 role="combobox" aria-expanded="false" aria-controls="product-results" autofocus>
+        </div>
+      </div>
+      <div class="results" id="product-results" role="listbox" aria-label="Produtos"></div>
+    </section>
+
+    <section class="panel" aria-label="Itens da venda">
+      <header><h2>Itens da venda</h2><span class="small muted" id="cart-count"></span></header>
+      <div id="cart"></div>
+      <div class="empty" id="cart-empty"><strong>Nenhum produto ainda.</strong>Busque acima e pressione Enter para adicionar.</div>
+    </section>
+  </div>
+
+  <div class="pos-right">
+    <section class="panel">
+      <div class="body">
+        <div class="totals">
+          <div class="line"><span class="muted">Subtotal</span><span class="money" id="t-subtotal">R$ 0,00</span></div>
+          <div class="line"><span class="muted">Desconto</span>
+            <span class="discount-ctl"><select id="discount-type" aria-label="Tipo de desconto"><option value="valor">R$</option><option value="percent">%</option></select>
+              <input id="discount" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Desconto"></span></div>
+          <div class="line grand"><span>Total</span><span class="money" id="t-total">R$ 0,00</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="body">
+        <div class="field customer-pick" style="margin-bottom:0">
+          <label for="customer-search">Cliente <span class="hint" id="customer-hint">(opcional se for pago na hora)</span></label>
+          <div id="customer-chip" class="customer-chip" hidden><div><strong id="chip-name"></strong><div class="small muted" id="chip-info"></div></div>
+            <button type="button" class="link-button" id="chip-clear">Trocar</button></div>
+          <input id="customer-search" type="search" autocomplete="off" placeholder="Buscar cliente pelo nome ou telefone">
+          <div class="dropdown" id="customer-results" hidden role="listbox"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="body">
+        <div class="field"><label id="pay-label">Pagamento</label>
+          <div class="segmented" role="radiogroup" aria-labelledby="pay-label">
+            <label><input type="radio" name="mode" value="full" checked> Pago total</label>
+            <label><input type="radio" name="mode" value="partial"> Pagou uma parte</label>
+            <label><input type="radio" name="mode" value="later"> Pagar depois</label>
+          </div></div>
+        <div class="grid" style="margin-bottom:.875rem">
+          <div class="field" id="amount-field" hidden><label for="paid">Valor pago agora</label><div class="money-input"><input id="paid" inputmode="decimal" autocomplete="off" placeholder="0,00"></div></div>
+          <div class="field" id="method-field"><label for="method">Forma de pagamento</label>
+            <select id="method">{% for k, l in methods.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+        </div>
+        <div class="field" id="due-field" hidden><label for="due">Vence em</label><input id="due" type="date" min="{{ today|iso }}">
+          <div class="quick-dates"><button type="button" class="chip" data-days="0">Hoje</button><button type="button" class="chip" data-days="7">7 dias</button>
+            <button type="button" class="chip" data-days="15">15 dias</button><button type="button" class="chip" data-days="30">30 dias</button></div></div>
+        <div class="summary-line" id="pay-summary" aria-live="polite"></div>
+        <details class="more" style="margin-top:.75rem"><summary>Observação ou data da venda</summary><div class="inner">
+          <div class="field"><label for="notes">Observação</label><input id="notes" maxlength="500"></div>
+          <div class="field"><label for="sale-date">Data da venda</label><input id="sale-date" type="date" value="{{ today|iso }}" max="{{ today|iso }}"></div></div></details>
+      </div>
+    </section>
+
+    <div class="alert-box" id="sale-error" role="alert" hidden></div>
+    <button class="btn primary finish" id="finish" type="button" disabled>Concluir venda</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/sale.js') }}"></script>{% endblock %}

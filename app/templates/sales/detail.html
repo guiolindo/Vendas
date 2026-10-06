@@ -1,0 +1,91 @@
+{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, progress, csrf %}
+{% block title %}Venda #{{ sale.id }}{% endblock %}
+{% block content %}
+{% set st = sale.status %}
+<div class="page-head"><div><a class="crumb" href="{{ url_for('sales.index') }}">‹ Vendas</a>
+  <h1>Venda #{{ sale.id }} {{ badge(st) }}</h1>
+  <p>{{ sale.sale_date|data }} ·
+    {% if sale.customer %}<a href="{{ url_for('customers.detail', customer_id=sale.customer_id) }}">{{ sale.customer.name }}</a>{% else %}Consumidor (sem cadastro){% endif %}</p></div>
+  <div class="actions no-print">
+    <button class="btn" type="button" data-print>{{ icon('print') }} Imprimir</button>
+    {% if not sale.cancelled %}<a class="btn" href="{{ url_for('sales.edit', sale_id=sale.id) }}">{{ icon('edit') }} Corrigir cliente ou vencimento</a>{% endif %}
+  </div></div>
+
+{% if sale.cancelled %}
+<div class="alert-box">Venda cancelada em {{ sale.cancelled_at|hora }}. Motivo: {{ sale.cancel_reason }}. O estoque foi devolvido e os pagamentos foram estornados (continuam no histórico abaixo).</div>
+{% endif %}
+
+<section class="ledger compact">
+  <div><span class="label">Total da venda</span><span class="value">{{ sale.total_cents|brl }}</span>{% if sale.discount_cents %}<span class="sub">com desconto de {{ sale.discount_cents|brl }}</span>{% endif %}</div>
+  <div class="in"><span class="label">Pago</span><span class="value">{{ sale.paid_cents|brl }}</span>{{ progress(sale.paid_cents, sale.total_cents) }}</div>
+  <div class="{{ 'alert' if st == 'vencido' else '' }}"><span class="label">Falta pagar</span><span class="value">{{ sale.remaining_cents|brl }}</span></div>
+  <div><span class="label">Vencimento</span><span class="value" style="font-size:1.25rem">{{ sale.due_date|data if sale.due_date else '—' }}</span>
+    {% if sale.remaining_cents > 0 and sale.due_date %}<span class="sub {{ 'owe-late' if st == 'vencido' else '' }}">{{ sale.due_date|due_hint }}</span>{% endif %}</div>
+</section>
+
+<div class="cols wide-left">
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Produtos</h2></header>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Produto</th><th class="right">Qtd.</th><th class="right">Preço</th><th class="right">Subtotal</th></tr></thead>
+        <tbody>{% for i in sale.items %}<tr><td><a href="{{ url_for('products.detail', product_id=i.product_id) }}">{{ i.product_name }}</a><span class="sub">{{ i.product_code }}</span></td>
+          <td class="right num">{{ i.quantity }} {{ i.unit }}</td><td class="right money">{{ i.unit_price_cents|brl }}</td><td class="right money">{{ i.total_cents|brl }}</td></tr>{% endfor %}</tbody>
+        <tfoot>
+          {% if sale.discount_cents %}<tr><td colspan="3" class="right">Subtotal</td><td class="right money">{{ sale.subtotal_cents|brl }}</td></tr>
+          <tr><td colspan="3" class="right">Desconto</td><td class="right money">− {{ sale.discount_cents|brl }}</td></tr>{% endif %}
+          <tr><td colspan="3" class="right">Total</td><td class="right money">{{ sale.total_cents|brl }}</td></tr></tfoot></table></div>
+    </section>
+    <section class="panel">
+      <header><h2>Pagamentos</h2></header>
+      {% if sale.payments %}<div class="table-wrap"><table>
+        <thead><tr><th>Data</th><th class="right">Valor</th><th>Forma</th><th>Observação</th><th class="no-print"></th></tr></thead>
+        <tbody>{% for p in sale.payments %}<tr class="{{ 'void' if p.voided else '' }}">
+          <td>{{ p.paid_at|data }}</td><td class="right money {{ '' if p.voided else 'in-money' }}">{{ p.amount_cents|brl }}</td>
+          <td>{{ p.method|method_label }}</td>
+          <td>{% if p.voided %}<span class="badge cancelada">Estornado</span> <span style="text-decoration:none">{{ p.void_reason }}</span>{% else %}{{ p.note or '—' }}{% endif %}</td>
+          <td class="right no-print">{% if not p.voided and not sale.cancelled %}
+            <details class="inline-pay"><summary class="link-button danger small">Estornar</summary>
+              <form method="post" action="{{ url_for('sales.void_payment', payment_id=p.id) }}" class="pay-form" style="margin-top:.5rem" data-confirm="Estornar o pagamento de {{ p.amount_cents|brl }}?">{{ csrf() }}
+                <div class="field"><label>Motivo <span class="hint">(opcional)</span></label><input name="reason" maxlength="255" placeholder="Lançado por engano"></div>
+                <button class="btn danger small" type="submit">Estornar</button></form></details>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="empty">Nenhum pagamento registrado nesta venda.</div>{% endif %}
+    </section>
+    {% if sale.notes %}<section class="panel"><header><h2>Observações</h2></header><div class="body">{{ sale.notes }}</div></section>{% endif %}
+  </div>
+
+  <div class="stack no-print">
+    {% if sale.remaining_cents > 0 and not sale.cancelled %}
+    <section class="panel" id="receber">
+      <header><h2>Registrar pagamento</h2></header>
+      <div class="body">
+        <form method="post" action="{{ url_for('sales.add_payment', sale_id=sale.id) }}">
+          {{ csrf() }}
+          <div class="field"><label for="amount">Valor recebido</label>
+            <div class="money-input"><input id="amount" name="amount" inputmode="decimal" autocomplete="off" required placeholder="0,00" data-max="{{ sale.remaining_cents }}"></div>
+            <p class="help">Falta {{ sale.remaining_cents|brl }}. <button type="button" class="link-button" data-fill="{{ sale.remaining_cents|brl_plain }}">Receber tudo</button></p></div>
+          <div class="grid">
+            <div class="field"><label for="method">Forma</label><select id="method" name="method">{% for k, l in methods.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+            <div class="field"><label for="paid_at">Data</label><input id="paid_at" type="date" name="paid_at" value="{{ today|iso }}" min="{{ sale.sale_date|iso }}" max="{{ today|iso }}"></div>
+          </div>
+          <div class="field" style="margin-top:.875rem"><label for="note">Observação <span class="hint">(opcional)</span></label><input id="note" name="note" maxlength="255"></div>
+          <button class="btn primary" type="submit" style="width:100%">Registrar pagamento</button>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+    {% if not sale.cancelled %}
+    <section class="panel">
+      <header><h2>Cancelar venda</h2></header>
+      <div class="body">
+        <details class="more"><summary>Cancelar esta venda</summary><div class="inner">
+          <form method="post" action="{{ url_for('sales.cancel', sale_id=sale.id) }}" data-confirm="Cancelar a venda #{{ sale.id }}? Isso devolve os produtos ao estoque{% if sale.paid_cents %} e estorna {{ sale.paid_cents|brl }} já pagos{% endif %}.">{{ csrf() }}
+            <div class="field"><label for="reason">Motivo</label><input id="reason" name="reason" required maxlength="255" placeholder="Ex.: cliente desistiu"></div>
+            <p class="help" style="margin-bottom:.75rem">Os produtos voltam ao estoque{% if sale.paid_cents %} e o que foi pago ({{ sale.paid_cents|brl }}) é marcado como estornado{% endif %}. Para mudar itens ou valores, cancele e registre de novo.</p>
+            <button class="btn danger solid" type="submit">Cancelar venda</button></form></div></details>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

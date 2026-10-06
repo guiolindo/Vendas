@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}Corrigir venda #{{ sale.id }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><a class="crumb" href="{{ url_for('sales.detail', sale_id=sale.id) }}">‹ Venda #{{ sale.id }}</a><h1>Corrigir venda #{{ sale.id }}</h1>
+  <p>Cliente, vencimento e observações. Produtos e valores não mudam: para isso, cancele e registre a venda de novo.</p></div></div>
+<form method="post" class="panel form-narrow" novalidate><div class="body">
+  {{ csrf() }}
+  <div class="field"><label for="customer_id">Cliente</label>
+    <select id="customer_id" name="customer_id" class="{{ 'invalid' if error_field == 'customer' }}"><option value="">Consumidor (sem cadastro)</option>
+      {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if (values.get('customer_id') or sale.customer_id|string) == c.id|string }}>{{ c.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="due_date">Vencimento</label>
+    <input id="due_date" type="date" name="due_date" value="{{ values.get('due_date', sale.due_date|iso) }}" min="{{ sale.sale_date|iso }}" class="{{ 'invalid' if error_field == 'due_date' }}">
+    {% if sale.remaining_cents > 0 %}<p class="help">Ainda falta receber {{ sale.remaining_cents|brl }}, então o vencimento é obrigatório.</p>{% endif %}</div>
+  <div class="field"><label for="notes">Observações <span class="hint">(opcional)</span></label><textarea id="notes" name="notes">{{ values.get('notes', sale.notes or '') }}</textarea></div>
+  <div class="form-foot"><button class="btn primary" type="submit">Salvar</button><a class="btn ghost" href="{{ url_for('sales.detail', sale_id=sale.id) }}">Cancelar</a></div>
+</div></form>
+{% endblock %}

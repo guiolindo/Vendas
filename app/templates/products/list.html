@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% from "_macros.html" import icon, pager, remembered_bar %}
+{% block title %}Produtos{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Produtos</h1></div>
+  <div class="actions"><a class="btn primary" href="{{ url_for('products.new') }}">{{ icon('plus') }} Novo produto</a></div></div>
+<section class="panel">
+  {{ remembered_bar(remembered) }}
+  <form class="filters" method="get">
+    <div class="field grow"><label for="q">Buscar</label><input id="q" name="q" value="{{ args.get('q','') }}" placeholder="Nome, código ou SKU" data-search></div>
+    <div class="field"><label for="categoria">Categoria</label><select id="categoria" name="categoria"><option value="">Todas</option>
+      {% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if args.get('categoria') == c.id|string }}>{{ c.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="estoque">Estoque</label><select id="estoque" name="estoque">
+      <option value="">Todos</option><option value="baixo" {{ 'selected' if args.get('estoque') == 'baixo' }}>Abaixo do mínimo</option><option value="zerado" {{ 'selected' if args.get('estoque') == 'zerado' }}>Zerado</option></select></div>
+    <div class="field"><label for="status">Situação</label><select id="status" name="status">
+      <option value="">Todos</option><option value="ativos" {{ 'selected' if args.get('status') == 'ativos' }}>Ativos</option><option value="inativos" {{ 'selected' if args.get('status') == 'inativos' }}>Inativos</option></select></div>
+    <button class="btn" type="submit">Filtrar</button>
+    {% if args %}<a class="btn ghost" href="?limpar=1">Limpar</a>{% endif %}
+  </form>
+  {% if page.items %}
+  {% macro th(label, key, cls='') %}{% set cur = args.get('ordem','nome') == key %}{% set nxt = 'desc' if cur and args.get('dir','asc') == 'asc' else 'asc' %}
+    <th class="{{ cls }}" {% if cur %}aria-sort="{{ 'ascending' if args.get('dir','asc') == 'asc' else 'descending' }}"{% endif %}><a href="{{ qs(ordem=key, dir=nxt, pagina=None) }}">{{ label }}{{ ' ▲' if cur and args.get('dir','asc') == 'asc' else (' ▼' if cur else '') }}</a></th>{% endmacro %}
+  <div class="table-wrap"><table>
+    <thead><tr>{{ th('Produto','nome') }}{{ th('Código','codigo') }}<th>Categoria</th>{{ th('Preço','preco','right') }}{{ th('Estoque','estoque','right') }}<th></th></tr></thead>
+    <tbody>{% for p in page.items %}
+    <tr class="row-link" data-href="{{ url_for('products.detail', product_id=p.id) }}">
+      <td><a href="{{ url_for('products.detail', product_id=p.id) }}">{{ p.name }}</a>{% if not p.active %} <span class="badge inativo">Inativo</span>{% endif %}</td>
+      <td class="muted">{{ p.code }}</td><td>{{ p.category.name if p.category else '—' }}</td>
+      <td class="right money">{{ p.price_cents|brl }}</td>
+      <td class="right num">{{ p.stock_qty|qtd }} {{ p.unit }}</td>
+      <td class="right">{% if p.stock_qty == 0 %}<span class="badge zerado">Acabou</span>{% elif p.low_stock %}<span class="badge baixo">Baixo</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty"><strong>Nenhum produto encontrado.</strong>{% if args %}Tente tirar algum filtro.{% else %}Cadastre o primeiro produto para começar a vender.{% endif %}</div>{% endif %}
+  {{ pager(page) }}
+</section>
+{% endblock %}

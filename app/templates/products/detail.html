@@ -1,0 +1,64 @@
+{% extends "base.html" %}{% from "_macros.html" import icon, csrf, badge %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><a class="crumb" href="{{ url_for('products.index') }}">‹ Produtos</a>
+  <h1>{{ product.name }} {% if not product.active %}<span class="badge inativo">Inativo</span>{% endif %}</h1>
+  <p>{{ product.code }}{% if product.sku %} · SKU {{ product.sku }}{% endif %}{% if product.category %} · {{ product.category.name }}{% endif %}</p></div>
+  <div class="actions"><a class="btn" href="{{ url_for('products.edit', product_id=product.id) }}">{{ icon('edit') }} Editar</a></div></div>
+
+<section class="ledger compact">
+  <div><span class="label">Em estoque</span><span class="value">{{ product.stock_qty|qtd }} <small>{{ product.unit }}</small></span>
+    <span class="sub">{% if product.stock_qty == 0 %}<span class="owe-late">Acabou</span>{% elif product.low_stock %}<span class="owe-soon">Abaixo do mínimo ({{ product.min_stock }})</span>{% else %}Mínimo: {{ product.min_stock }}{% endif %}</span></div>
+  <div><span class="label">Preço de venda</span><span class="value">{{ product.price_cents|brl }}</span><span class="sub">Custo {{ product.cost_cents|brl }} · margem {{ product.margin_cents|brl }}</span></div>
+  <div><span class="label">Já vendido</span><span class="value">{{ sold_qty|qtd }}</span><span class="sub">{{ sold_cents|brl }} em vendas</span></div>
+  <div><span class="label">Cadastrado em</span><span class="value" style="font-size:1.125rem">{{ product.created_at|data }}</span></div>
+</section>
+
+<div class="cols">
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Atualizar estoque</h2></header>
+      <div class="body">
+        <form method="post" action="{{ url_for('products.stock_action', product_id=product.id) }}" class="pay-form">
+          {{ csrf() }}
+          <div class="field"><label for="kind">O que aconteceu?</label><select id="kind" name="kind" data-stock-kind>
+            <option value="entrada">Chegou mercadoria</option><option value="ajuste">Contei e o número é outro</option></select></div>
+          <div class="field"><label for="q" data-stock-label>Quantidade que chegou</label><input id="q" name="quantity" type="number" min="0" required inputmode="numeric"></div>
+          <div class="field"><label for="n">Observação <span class="hint">(opcional)</span></label><input id="n" name="note" maxlength="255"></div>
+          <button class="btn primary" type="submit">Registrar</button>
+        </form>
+      </div>
+    </section>
+    <section class="panel">
+      <header><h2>Movimentação do estoque</h2></header>
+      {% if movements %}<div class="table-wrap"><table>
+        <thead><tr><th>Data</th><th>Tipo</th><th class="right">Qtd.</th><th class="right">Saldo</th></tr></thead>
+        <tbody>{% for m in movements %}<tr><td>{{ m.created_at|hora }}</td>
+          <td>{{ m.kind|movement_label }}{% if m.sale_id %} · <a href="{{ url_for('sales.detail', sale_id=m.sale_id) }}">#{{ m.sale_id }}</a>{% endif %}{% if m.note %}<span class="sub">{{ m.note }}</span>{% endif %}</td>
+          <td class="right num {{ 'in-money' if m.quantity > 0 else '' }}">{{ '+' if m.quantity > 0 }}{{ m.quantity }}</td><td class="right num">{{ m.balance_after }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="empty">Sem movimentação.</div>{% endif %}
+    </section>
+  </div>
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Histórico de vendas</h2></header>
+      {% if sales %}<div class="table-wrap"><table>
+        <thead><tr><th>Venda</th><th>Cliente</th><th class="right">Qtd.</th><th class="right">Preço</th></tr></thead>
+        <tbody>{% for item, sale in sales %}<tr><td><a href="{{ url_for('sales.detail', sale_id=sale.id) }}">#{{ sale.id }}</a><span class="sub">{{ sale.sale_date|data }}{% if sale.cancelled %} · cancelada{% endif %}</span></td>
+          <td>{{ sale.customer.name if sale.customer else 'Consumidor' }}</td><td class="right num">{{ item.quantity }}</td><td class="right money">{{ item.unit_price_cents|brl }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="empty">Este produto ainda não foi vendido.</div>{% endif %}
+    </section>
+    <section class="panel">
+      <header><h2>Ativar ou excluir</h2></header>
+      <div class="body actions">
+        <form method="post" action="{{ url_for('products.toggle', product_id=product.id) }}" class="inline-form">{{ csrf() }}
+          <input type="hidden" name="active" value="{{ '0' if product.active else '1' }}">
+          <button class="btn" type="submit">{{ 'Desativar produto' if product.active else 'Reativar produto' }}</button></form>
+        <form method="post" action="{{ url_for('products.delete', product_id=product.id) }}" class="inline-form" data-confirm="Excluir “{{ product.name }}”? Isso não pode ser desfeito.">{{ csrf() }}
+          <button class="btn danger" type="submit">{{ icon('trash') }} Excluir</button></form>
+        <p class="small muted" style="width:100%">Produtos que já foram vendidos não podem ser excluídos, apenas desativados.</p>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
