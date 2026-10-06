@@ -12,7 +12,7 @@ from ..services import security as sec
 from .helpers import audit_event, client_ip_hash, csrf_token, db, safe_next
 
 bp = Blueprint("auth", __name__)
-PUBLIC = {"auth.login", "auth.setup", "static", "health", "manifest", "favicon"}
+PUBLIC = {"auth.login", "auth.setup", "static", "health", "manifest", "favicon", "robots"}
 
 
 def init_app(app) -> None:

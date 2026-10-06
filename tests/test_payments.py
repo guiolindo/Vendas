@@ -262,3 +262,35 @@ def test_same_token_sent_simultaneously_creates_one_sale_and_one_payment(databas
     assert session.scalar(select(func.sum(Payment.amount_cents))) == 3000
     session.refresh(p)
     assert p.stock_qty == 19
+
+
+def test_customer_and_sale_payments_racing_never_overpay(database, session, make_product, customer):
+    """Recebimento por cliente e por venda ao mesmo tempo disputando o mesmo saldo (R$ 100 em aberto)."""
+    p = make_product("Item", price=10000, stock=5)
+    sale = sale_svc.create_sale(session, SaleInput(items=[ItemInput(p.id, 1)], customer_id=customer.id,
+                                                   due_date=TODAY + timedelta(days=4)))
+    sale_id, customer_id, results = sale.id, customer.id, []
+
+    def by_sale():
+        s = database.session()
+        try:
+            pay.register_payment(s, sale_id, 6000, "pix"); results.append("ok")
+        except BusinessError:
+            results.append("recusado")
+        finally:
+            s.close()
+
+    def by_customer():
+        s = database.session()
+        try:
+            pay.register_customer_payment(s, customer_id, 6000, "dinheiro"); results.append("ok")
+        except BusinessError:
+            results.append("recusado")
+        finally:
+            s.close()
+
+    threads = [threading.Thread(target=f) for f in (by_sale, by_customer) * 3]
+    [t.start() for t in threads]; [t.join() for t in threads]
+    session.rollback()
+    paid = session.scalar(select(func.sum(Payment.amount_cents)))
+    assert results.count("ok") == 1 and paid == 6000, (results, paid)   # R$ 60 + R$ 60 > R$ 100: só um passa

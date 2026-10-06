@@ -44,7 +44,7 @@
     <section class="panel">
       <header><h2>Atrasados para cobrar</h2><a href="{{ url_for('collections.index', aba='vencidos') }}" class="small">Ver todos</a></header>
       {% if d.overdue_sales %}
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table class="cards">
         <thead><tr><th>Cliente</th><th>Venceu</th><th class="right">Falta pagar</th><th></th></tr></thead>
         <tbody>{% for s in d.overdue_sales %}
           <tr><td><a href="{{ url_for('customers.detail', customer_id=s.customer_id) }}">{{ s.customer.name }}</a><span class="sub">Venda #{{ s.id }}</span></td>
@@ -58,7 +58,7 @@
     <section class="panel">
       <header><h2>Clientes com saldo a pagar</h2><a href="{{ url_for('customers.index', mostrar='devendo') }}" class="small">Ver todos</a></header>
       {% if d.debtors %}
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table class="cards">
         <thead><tr><th>Cliente</th><th class="right">Deve</th><th class="right">Vencido</th></tr></thead>
         <tbody>{% for r in d.debtors %}
           <tr><td><a href="{{ url_for('customers.detail', customer_id=r.customer.id) }}">{{ r.customer.name }}</a><span class="sub">{{ r.open_sales }} {{ 'venda em aberto' if r.open_sales == 1 else 'vendas em aberto' }}</span></td>

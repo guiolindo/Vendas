@@ -371,6 +371,7 @@ tr.void td:last-child, tr.void td .badge { text-decoration: none; }
   .ledger > :nth-child(5) { order: -2; grid-column: 1 / -1; border-top: 0; }
   .ledger > :nth-child(4) { order: -1; grid-column: 1 / -1; }
   .ledger > :nth-child(1), .ledger > :nth-child(2) { border-top: 1px solid var(--line-soft); }
+  .ledger > :nth-child(3) { grid-column: 1 / -1; border-right: 0 !important; border-top: 1px solid var(--line-soft); }
   .ledger > :nth-child(odd):not(:nth-child(5)):not(:nth-child(4)) { border-right: 1px solid var(--line-soft) !important; }
   .ledger.compact > * { border-top: 1px solid var(--line-soft); }
   .ledger.compact > :nth-child(-n+2) { border-top: 0; }

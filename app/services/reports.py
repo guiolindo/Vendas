@@ -205,7 +205,8 @@ def owners_report(session: Session, p: ReportParams, today: date) -> Report:
     for sale in sales:
         shares = owner_svc.sale_shares(sale)
         got = owner_svc.period_received(sale, shares, start, end)
-        left = {k: shares[k] - v for k, v in owner_svc.owner_paid(shares, sale.total_cents, sale.paid_cents).items()}
+        paid_by = {k: sum(part[k] for _, part in owner_svc.payment_splits(sale, shares)) for k in shares}
+        left = {k: shares[k] - paid_by[k] for k in shares}
         for oid, share in shares.items():
             row = acc.setdefault(oid, {"name": names.get(oid, "Produtos sem dono"), "sold": 0, "cost": 0, "received": 0, "receivable": 0})
             row["received"] += got[oid]

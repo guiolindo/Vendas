@@ -4,9 +4,9 @@ Como o dinheiro é dividido:
   * Uma venda pode misturar produtos de pessoas diferentes. O TOTAL da venda (já com desconto)
     é repartido entre as pessoas na proporção do valor dos itens de cada uma.
   * O que foi PAGO de uma venda é repartido na mesma proporção.
-Tudo em centavos inteiros, com arredondamento para baixo: nunca dá valor negativo, e quando a
-venda está quitada cada pessoa recebe exatamente a sua parte. No meio do caminho (venda só
-parcialmente paga) a soma das pessoas pode ficar até alguns centavos abaixo do total real.
+  * Cada PAGAMENTO é repartido pelo que cada pessoa ainda tem a receber daquela venda.
+Tudo em centavos inteiros: a soma das pessoas é SEMPRE exatamente o total real (nenhum centavo
+some ou aparece), nunca dá valor negativo e, quitada a venda, cada pessoa recebeu a sua parte.
 """
 from __future__ import annotations
 
@@ -93,12 +93,18 @@ def sale_shares(sale: Sale) -> dict[int | None, int]:
     return allocate(sale.total_cents, dict(weights))
 
 
-def owner_paid(shares: dict, total: int, paid: int) -> dict:
-    """Quanto do que foi pago já 'pertence' a cada pessoa. Monótono: pagar mais nunca diminui."""
-    if total <= 0:
-        return {k: 0 for k in shares}
-    paid = min(paid, total)
-    return {k: paid * v // total for k, v in shares.items()}
+def payment_splits(sale: Sale, shares: dict) -> list[tuple[Payment, dict]]:
+    """Reparte cada pagamento válido (em ordem de data) pelo que falta a cada pessoa.
+    Exato, sem negativos, e o último centavo da venda fecha certo para todos."""
+    received = {k: 0 for k in shares}
+    out = []
+    for payment in sorted((p for p in sale.payments if p.voided_at is None), key=lambda p: (p.paid_at, p.id)):
+        owed = {k: shares[k] - received[k] for k in shares}
+        part = allocate(min(payment.amount_cents, sum(owed.values())), owed)
+        for k, v in part.items():
+            received[k] += v
+        out.append((payment, part))
+    return out
 
 
 # ── painéis ──────────────────────────────────────────────────────────────────
@@ -131,15 +137,9 @@ class Acc:
     overdue_sales: list = field(default_factory=list)
 
 
-def _paid_until(sale: Sale, day: date) -> int:
-    return sum(p.amount_cents for p in sale.payments if p.voided_at is None and p.paid_at <= day)
-
-
 def compute(session: Session, today: date) -> dict[int | None, Acc]:
     """Uma passada pelas vendas relevantes, calculando o painel de todas as pessoas de uma vez."""
     month_start = today.replace(day=1)
-    before_month = month_start - timedelta(days=1)
-    yesterday = today - timedelta(days=1)
     paid_in_month = select(Payment.sale_id).where(Payment.voided_at.is_(None), Payment.paid_at >= month_start)
     sales = session.scalars(
         select(Sale).where(
@@ -151,10 +151,8 @@ def compute(session: Session, today: date) -> dict[int | None, Acc]:
     acc: dict[int | None, Acc] = defaultdict(Acc)
     for sale in sales:
         shares = sale_shares(sale)
-        paid_now = owner_paid(shares, sale.total_cents, sale.paid_cents)
-        cum_today = owner_paid(shares, sale.total_cents, _paid_until(sale, today))
-        cum_yesterday = owner_paid(shares, sale.total_cents, _paid_until(sale, yesterday))
-        cum_before_month = owner_paid(shares, sale.total_cents, _paid_until(sale, before_month))
+        splits = payment_splits(sale, shares)
+        paid_now = {k: sum(part[k] for _, part in splits) for k in shares}
         open_sale = sale.paid_cents < sale.total_cents
         status = sale_status(sale.total_cents, sale.paid_cents, sale.due_date, today)
         for oid, share in shares.items():
@@ -163,8 +161,11 @@ def compute(session: Session, today: date) -> dict[int | None, Acc]:
                 a.sold_today += share; a.sales_today += 1
             if month_start <= sale.sale_date <= today:
                 a.sold_month += share; a.sales_month += 1
-            a.received_today += cum_today[oid] - cum_yesterday[oid]
-            a.received_month += cum_today[oid] - cum_before_month[oid]
+            for payment, part in splits:
+                if payment.paid_at == today:
+                    a.received_today += part[oid]
+                if month_start <= payment.paid_at <= today:
+                    a.received_month += part[oid]
             remaining = share - paid_now[oid]
             if open_sale and remaining > 0:
                 a.receivable += remaining
@@ -187,7 +188,10 @@ def compute(session: Session, today: date) -> dict[int | None, Acc]:
 
 
 def period_received(sale: Sale, shares: dict, start: date, end: date) -> dict:
-    """Recebido por pessoa entre duas datas (diferença de acumulados, nunca negativa)."""
-    after = owner_paid(shares, sale.total_cents, _paid_until(sale, end))
-    before = owner_paid(shares, sale.total_cents, _paid_until(sale, start - timedelta(days=1)))
-    return {k: after[k] - before[k] for k in shares}
+    """Recebido por pessoa entre duas datas (soma das partes dos pagamentos desse período)."""
+    got = {k: 0 for k in shares}
+    for payment, part in payment_splits(sale, shares):
+        if start <= payment.paid_at <= end:
+            for k, v in part.items():
+                got[k] += v
+    return got

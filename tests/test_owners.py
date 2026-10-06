@@ -38,15 +38,33 @@ def test_allocate_never_loses_or_creates_cents():
         assert sum(got.values()) == total and all(v >= 0 for v in got.values())
 
 
-def test_owner_paid_is_monotonic_and_exact_when_settled():
-    shares = {1: 3333, 2: 3333, 3: 3334}
-    previous = {k: 0 for k in shares}
-    for paid in range(0, 10001):
-        now = own.owner_paid(shares, 10000, paid)
-        assert all(now[k] >= previous[k] for k in shares)       # pagar mais nunca diminui a parte de ninguém
-        assert sum(now.values()) <= paid                         # e nunca passa do que foi pago
-        previous = now
-    assert previous == shares                                    # quitado: cada um recebe exatamente a sua parte
+def test_payment_splits_are_exact_nonnegative_and_settle_each_person(session, duo):
+    ana, bia, pa, pb, c = duo
+    rng = random.Random(11)
+    for _ in range(15):  # até 45 unidades de cada produto, dentro do estoque de 50
+        sale = sell(session, [(pa, rng.randint(1, 3)), (pb, rng.randint(1, 3))],
+                    discount_cents=rng.randint(0, 999), customer_id=c.id, due_date=TODAY + timedelta(days=9))
+        shares = own.sale_shares(sale)
+        left = sale.total_cents
+        while left > 0:
+            part = rng.randint(1, left) if rng.random() < .7 else left
+            pay.register_payment(session, sale.id, part, "pix"); left -= part
+        session.refresh(sale)
+        splits = own.payment_splits(sale, shares)
+        got = {k: sum(p[k] for _, p in splits) for k in shares}
+        assert got == shares                                              # quitada: cada pessoa recebeu exatamente a sua parte
+        assert all(sum(p.values()) == pay_.amount_cents and min(p.values()) >= 0 for pay_, p in splits)  # cada pagamento fecha
+
+
+def test_partial_state_sums_to_the_real_totals_to_the_cent(session, duo):
+    """O caso que dava R$ 609,41 contra R$ 609,40: a soma das pessoas tem de bater com o geral."""
+    ana, bia, pa, pb, c = duo
+    odd = pvc.create_product(session, pvc.ProductInput(name="Quebrado", price_cents=33333, initial_stock=9, owner_id=bia.id))
+    sale = sell(session, [(pa, 1), (odd, 1)], customer_id=c.id, paid_cents=5001, payment_method="pix", due_date=TODAY + timedelta(days=3))
+    shares = own.sale_shares(sale)
+    paid = {k: sum(p[k] for _, p in own.payment_splits(sale, shares)) for k in shares}
+    assert sum(paid.values()) == 5001
+    assert sum(shares[k] - paid[k] for k in shares) == sale.total_cents - 5001
 
 
 def test_mixed_sale_with_discount_is_split_proportionally(session, duo):
@@ -186,3 +204,26 @@ def test_product_and_stock_reports_filter_by_person(session, scenario):
     assert [row["name"] for row in r.rows] == ["Produto da Bia"] and r.totals["qty"] == 3
     r = reports.build(session, "estoque", reports.ReportParams(owner_id=ana.id), TODAY)
     assert [row["name"] for row in r.rows] == ["Produto da Ana"]
+
+
+def test_general_panel_equals_sum_of_people_to_the_cent_with_awkward_amounts(session, duo):
+    """Valores que não dividem certo + pagamentos parciais em dias diferentes: o geral nunca difere das pessoas."""
+    from decimal import Decimal
+    ana, bia, pa, pb, c = duo
+    odd = pvc.create_product(session, pvc.ProductInput(name="Quebrado", price_cents=33333, initial_stock=99, owner_id=bia.id))
+    rng = random.Random(3)
+    for _ in range(12):
+        s = sell(session, [(pa, rng.randint(1, 2)), (odd, rng.randint(1, 3)), (pb, 1)],
+                 discount_percent=Decimal(str(rng.choice([0, 3.7, 12.5]))), customer_id=c.id,
+                 due_date=TODAY + timedelta(days=rng.randint(1, 9)))
+        s.due_date = TODAY - timedelta(days=rng.randint(0, 4))  # parte vencida, parte vence hoje
+        session.commit()
+        for _ in range(rng.randint(0, 2)):
+            left = s.total_cents - sum(p.amount_cents for p in s.payments if not p.voided)
+            if left > 1:
+                pay.register_payment(session, s.id, rng.randint(1, left - 1), "pix")
+            session.refresh(s)
+    g = dashboard.build(session, TODAY)
+    a, b = (dashboard.build_for_owner(session, TODAY, o.id) for o in (ana, bia))
+    for attr in ("sold_today", "sold_month", "received_today", "received_month", "receivable", "overdue", "due_today"):
+        assert getattr(g, attr) == getattr(a, attr) + getattr(b, attr), attr

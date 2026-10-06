@@ -56,6 +56,10 @@ def create_app(overrides: dict | None = None) -> Flask:
         if session is not None:
             session.close()
 
+    @app.get("/robots.txt")
+    def robots():
+        return "User-agent: *\nDisallow: /\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
     @app.get("/manifest.webmanifest")
     def manifest():
         from flask import jsonify, url_for
@@ -92,6 +96,7 @@ def create_app(overrides: dict | None = None) -> Flask:
         h["Referrer-Policy"] = "strict-origin-when-cross-origin"
         h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()"
         h["Cross-Origin-Opener-Policy"] = "same-origin"
+        h["X-Robots-Tag"] = "noindex, nofollow"  # sistema interno: nada de buscadores
         if app.config.get("SESSION_COOKIE_SECURE"):
             h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         if not request.path.startswith("/static/"):

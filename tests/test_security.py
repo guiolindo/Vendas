@@ -369,3 +369,10 @@ def test_sensitive_actions_are_audited_without_secrets(app, db, client):
     assert {"venda_criada", "venda_cancelada", "login_falhou"} <= set(actions)
     dump = " ".join(f"{a.detail} {a.ip_hash}" for a in db.scalars(select(AuditLog)))
     assert "errada123" not in dump and "127.0.0.1" not in dump        # sem senha e sem IP em claro
+
+
+def test_search_engines_are_told_to_stay_away(app, client):
+    assert "noindex" in client.get("/").headers["X-Robots-Tag"]
+    anon = app.test_client()
+    r = anon.get("/robots.txt")
+    assert r.status_code == 200 and "Disallow: /" in r.get_data(as_text=True)
