@@ -201,7 +201,9 @@ def format_cell(value, kind: str) -> str:
         return value.strftime("%d/%m/%Y")
     if kind == "status":
         return LABELS[Status(value)]
-    return str(value)
+    text = str(value)
+    # Excel/Sheets executam células que começam com = + - @ (injeção de fórmula): neutraliza com apóstrofo.
+    return "'" + text if kind in ("text", "link") and text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
 
 
 def to_csv(report: Report) -> bytes:

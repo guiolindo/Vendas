@@ -6,6 +6,7 @@
 <section class="panel">
   {{ remembered_bar(remembered) }}
   <form class="filters" method="get">
+    <button type="button" class="btn filters-toggle" data-filters-toggle aria-expanded="false">Filtros</button>
     <div class="field grow"><label for="q">Buscar</label><input id="q" name="q" value="{{ args.get('q','') }}" placeholder="Nome, código ou SKU" data-search></div>
     <div class="field"><label for="categoria">Categoria</label><select id="categoria" name="categoria"><option value="">Todas</option>
       {% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if args.get('categoria') == c.id|string }}>{{ c.name }}</option>{% endfor %}</select></div>
@@ -19,7 +20,7 @@
   {% if page.items %}
   {% macro th(label, key, cls='') %}{% set cur = args.get('ordem','nome') == key %}{% set nxt = 'desc' if cur and args.get('dir','asc') == 'asc' else 'asc' %}
     <th class="{{ cls }}" {% if cur %}aria-sort="{{ 'ascending' if args.get('dir','asc') == 'asc' else 'descending' }}"{% endif %}><a href="{{ qs(ordem=key, dir=nxt, pagina=None) }}">{{ label }}{{ ' ▲' if cur and args.get('dir','asc') == 'asc' else (' ▼' if cur else '') }}</a></th>{% endmacro %}
-  <div class="table-wrap"><table>
+  <div class="table-wrap"><table class="cards">
     <thead><tr>{{ th('Produto','nome') }}{{ th('Código','codigo') }}<th>Categoria</th>{{ th('Preço','preco','right') }}{{ th('Estoque','estoque','right') }}<th></th></tr></thead>
     <tbody>{% for p in page.items %}
     <tr class="row-link" data-href="{{ url_for('products.detail', product_id=p.id) }}">

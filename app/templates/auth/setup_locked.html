@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml"><title>Primeiro acesso · Vendas</title><link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"></head>
+<body><div class="auth"><div class="panel">
+  <div class="brand"><span class="brand-mark">V</span> Vendas</div>
+  <h1>Instalação protegida</h1>
+  <p class="muted" style="margin:.5rem 0 1rem">Para impedir que um estranho crie o primeiro usuário, o cadastro inicial só abre quando o administrador define a variável <strong>VENDAS_SETUP_TOKEN</strong> no servidor. Defina-a, reinicie e volte a esta página.</p>
+  <p class="small muted">Alternativa: crie o usuário pelo terminal do servidor com <code>flask --app run create-user NOME</code>.</p>
+</div></div></body></html>

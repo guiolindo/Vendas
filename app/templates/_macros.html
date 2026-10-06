@@ -76,3 +76,5 @@
 {%- endmacro %}
 
 {% macro csrf() -%}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{%- endmacro %}
+{# um identificador por formulário aberto: reenviar não duplica o pagamento #}
+{% macro once() -%}<input type="hidden" name="request_token" value="{{ new_token() }}">{%- endmacro %}

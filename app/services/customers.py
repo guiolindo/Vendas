@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import atomic
+from ..domain.text import limited
 from ..errors import BusinessError, NotFound
 from ..models import Customer, Sale
 
@@ -28,6 +29,9 @@ def _clean(v: str | None) -> str | None:
 def _fill(customer: Customer, data: CustomerInput) -> None:
     if not (data.name or "").strip():
         raise BusinessError("Informe o nome do cliente.", field="name")
+    limited(data.name, 160, "Nome", "name"); limited(data.phone, 30, "Telefone", "phone")
+    limited(data.document, 30, "Documento", "document"); limited(data.address, 255, "Endereço", "address")
+    limited(data.notes, 2000, "Observações", "notes")
     customer.name = data.name.strip()
     customer.phone = _clean(data.phone)
     customer.document = _clean(data.document)

@@ -12,7 +12,7 @@ from ..schemas.parsing import Form
 from ..services import customers as svc
 from ..services import payments
 from ..domain.money import format_brl
-from .helpers import (current_user_id, db, handle_business_errors, page_number,
+from .helpers import (audit_event, current_user_id, db, handle_business_errors, page_number,
                       remembered_args, safe_next)
 
 bp = Blueprint("customers", __name__, url_prefix="/clientes")
@@ -84,7 +84,9 @@ def receive(customer_id: int):
     f = Form(request.form)
     made = payments.register_customer_payment(
         db(), customer_id, f.money("amount", "Valor", required=True), f.text("method"),
-        f.date("paid_at", "Data"), f.text("note") or None, current_user_id())
+        f.date("paid_at", "Data"), f.text("note") or None, current_user_id(),
+        token=f.text("request_token")[:60] or None)
+    audit_event("recebimento_cliente", f"cliente #{customer_id} {sum(p.amount_cents for p in made)}")
     total = sum(p.amount_cents for p in made)
     n = len(made)
     flash(f"Pagamento de {format_brl(total)} registrado" + (f" e distribuído em {n} vendas." if n > 1 else "."), "success")
@@ -108,5 +110,6 @@ def toggle(customer_id: int):
 @handle_business_errors
 def delete(customer_id: int):
     svc.delete_customer(db(), customer_id)
+    audit_event("cliente_excluido", f"#{customer_id}")
     flash("Cliente excluído.", "success")
     return redirect(url_for("customers.index"))

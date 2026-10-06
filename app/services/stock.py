@@ -5,6 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from ..db import atomic
+from ..domain.text import limited
 from ..errors import BusinessError, NotFound
 from ..models import Product, StockMovement
 
@@ -58,6 +59,7 @@ def register_entry(session: Session, product_id: int, quantity: int, note: str |
                    user_id: int | None = None) -> StockMovement:
     if quantity <= 0 or quantity > MAX_QTY:
         raise BusinessError("Informe uma quantidade maior que zero.", field="quantity")
+    limited(note, 255, "Observação", "note")
     with atomic(session):
         return apply_movement(session, product_id, quantity, "entrada", note=note, user_id=user_id)
 
@@ -67,6 +69,7 @@ def adjust_to_count(session: Session, product_id: int, counted: int, note: str |
     """Ajusta o estoque para a quantidade contada fisicamente."""
     if counted < 0 or counted > MAX_QTY:
         raise BusinessError("A quantidade contada não pode ser negativa.", field="quantity")
+    limited(note, 255, "Observação", "note")
     with atomic(session):
         current = session.scalar(select(Product.stock_qty).where(Product.id == product_id))
         if current is None:

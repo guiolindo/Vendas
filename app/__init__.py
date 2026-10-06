@@ -20,15 +20,25 @@ def create_app(overrides: dict | None = None) -> Flask:
     app.config.update(overrides or {})
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
 
+    production = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("VENDAS_ENV") == "prod")
+    app.config["PRODUCTION"] = production = app.config.get("PRODUCTION", production)
+    app.config["SETUP_TOKEN"] = app.config.get("SETUP_TOKEN") or os.environ.get("VENDAS_SETUP_TOKEN") or None
+    if production and not (app.config.get("SECRET_KEY") or os.environ.get("VENDAS_SECRET_KEY")):
+        # Falha fechada: sem chave fixa as sessões ficariam num disco efêmero.
+        raise RuntimeError("Defina VENDAS_SECRET_KEY antes de rodar em produção.")
+    if production and not (app.config.get("DATABASE_URL") or os.environ.get("DATABASE_URL")):
+        raise RuntimeError("Defina DATABASE_URL (PostgreSQL) antes de rodar em produção.")
     app.config["SECRET_KEY"] = app.config.get("SECRET_KEY") or load_secret_key(app.instance_path)
+    app.config["MAX_CONTENT_LENGTH"] = 256 * 1024  # nenhum formulário daqui precisa de mais que isso
     url = (app.config.get("DATABASE_URL") or os.environ.get("DATABASE_URL")
            or f"sqlite:///{Path(app.instance_path) / 'vendas.db'}")
     database = Database(url)
     database.create_all()
     app.extensions["database"] = database
-    if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("FORCE_HTTPS"):
+    if production or os.environ.get("FORCE_HTTPS"):
         from werkzeug.middleware.proxy_fix import ProxyFix
         app.config["SESSION_COOKIE_SECURE"] = True
+        app.config["SESSION_COOKIE_NAME"] = "__Host-session"  # preso a este domínio, só HTTPS
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)  # TLS termina no proxy do Railway
 
     _setup_logging(app)
@@ -46,6 +56,15 @@ def create_app(overrides: dict | None = None) -> Flask:
         if session is not None:
             session.close()
 
+    @app.get("/manifest.webmanifest")
+    def manifest():
+        from flask import jsonify, url_for
+        return jsonify(
+            name="Vendas", short_name="Vendas", start_url="/", display="standalone", lang="pt-BR",
+            background_color="#f3f0e8", theme_color="#1c2622",
+            icons=[{"src": url_for("static", filename="icon.svg"), "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
+        ), 200, {"Content-Type": "application/manifest+json"}
+
     @app.get("/favicon.ico")
     def favicon():
         from flask import redirect, url_for
@@ -53,12 +72,50 @@ def create_app(overrides: dict | None = None) -> Flask:
 
     @app.get("/saude")
     def health():
+        from sqlalchemy import text
+        from .web.helpers import db
+        try:
+            db().execute(text("SELECT 1"))
+        except Exception:  # sem detalhes para quem pergunta
+            return {"ok": False}, 503
         return {"ok": True}
+
+    @app.after_request
+    def security_headers(response):
+        from flask import request
+        h = response.headers
+        h["Content-Security-Policy"] = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                                        "img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; "
+                                        "form-action 'self'; frame-ancestors 'none'")
+        h["X-Content-Type-Options"] = "nosniff"
+        h["X-Frame-Options"] = "DENY"
+        h["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()"
+        h["Cross-Origin-Opener-Policy"] = "same-origin"
+        if app.config.get("SESSION_COOKIE_SECURE"):
+            h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        if not request.path.startswith("/static/"):
+            h["Cache-Control"] = "no-store"  # telas com dados financeiros não ficam em cache (nem no botão Voltar)
+        return response
 
     @app.errorhandler(BusinessError)
     def business_error(e):
         # Erro de regra que escapou de uma rota (ex.: data inválida na URL): mensagem humana, nunca 500.
         return render_template("error.html", title="Não foi possível continuar", message=e.message), 400
+
+    from sqlalchemy.exc import DataError
+
+    @app.errorhandler(DataError)
+    def bad_data(_e):
+        # número fora do alcance do banco (ex.: id gigante na URL): trata como não encontrado
+        from .web.helpers import db
+        db().rollback()
+        return render_template("error.html", title="Página não encontrada",
+                               message="O endereço não existe ou o registro foi removido."), 404
+
+    @app.errorhandler(413)
+    def too_large(_e):
+        return render_template("error.html", title="Envio grande demais", message="O pedido passou do tamanho permitido."), 413
 
     @app.errorhandler(404)
     def not_found(_e):

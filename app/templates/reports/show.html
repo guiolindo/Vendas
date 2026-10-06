@@ -6,6 +6,7 @@
 <section class="panel">
   {% if r.filters %}
   <form class="filters no-print" method="get">
+    <button type="button" class="btn filters-toggle" data-filters-toggle aria-expanded="false">Filtros</button>
     {% if 'period' in r.filters %}
     <div class="field"><label for="de">De</label><input id="de" type="date" name="de" value="{{ de|iso }}"></div>
     <div class="field"><label for="ate">Até</label><input id="ate" type="date" name="ate" value="{{ ate|iso }}"></div>{% endif %}

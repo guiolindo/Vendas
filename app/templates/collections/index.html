@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, due, progress, pager, remembered_bar, csrf %}
+{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, due, progress, pager, remembered_bar, csrf, once %}
 {% block title %}Cobranças{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>Cobranças</h1><p>O que venceu, o que vence e o que já foi pago.</p></div></div>
@@ -17,6 +17,7 @@
 <section class="panel">
   {{ remembered_bar(remembered) }}
   <form class="filters" method="get">
+    <button type="button" class="btn filters-toggle" data-filters-toggle aria-expanded="false">Filtros</button>
     <input type="hidden" name="aba" value="{{ tab }}">
     <div class="field"><label for="cliente">Cliente</label><select id="cliente" name="cliente"><option value="">Todos</option>
       {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if args.get('cliente') == c.id|string }}>{{ c.name }}</option>{% endfor %}</select></div>
@@ -29,7 +30,7 @@
   </form>
   {% for e in errors %}<div class="alert-box" style="margin:1rem">{{ e }} O filtro foi ignorado.</div>{% endfor %}
   {% if page.items %}
-  <div class="table-wrap"><table>
+  <div class="table-wrap"><table class="cards">
     <thead><tr><th>Cliente</th><th>Venda</th><th>Vencimento</th><th class="right">Total</th><th class="right">Pago</th>
       <th class="right">{{ 'Falta pagar' if tab != 'pagos' else '' }}</th><th>Situação</th><th class="no-print"></th></tr></thead>
     <tbody>{% for s in page.items %}<tr>
@@ -42,7 +43,7 @@
       <td>{{ badge(s.status) }}</td>
       <td class="right no-print">{% if s.remaining_cents > 0 %}
         <details class="inline-pay"><summary class="btn small">Receber</summary>
-          <form method="post" action="{{ url_for('sales.add_payment', sale_id=s.id) }}" class="pay-form">{{ csrf() }}
+          <form method="post" action="{{ url_for('sales.add_payment', sale_id=s.id) }}" class="pay-form">{{ csrf() }}{{ once() }}
             <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
             <div class="field"><label>Valor</label><div class="money-input"><input name="amount" inputmode="decimal" required value="{{ s.remaining_cents|brl_plain }}" data-max="{{ s.remaining_cents }}"></div></div>
             <div class="field"><label>Forma</label><select name="method">{% for k, l in methods.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>

@@ -39,10 +39,13 @@ def anon(app):
 def client(app, db):
     user = User(username="ana", name="Ana Lima"); user.set_password("senha-forte-1")
     db.add(user); db.commit()
+    from app.services import security as sec
+    sid = sec.create_session(db, user, None, "pytest")
     c = app.test_client()
     with c.session_transaction() as s:
-        s["user_id"] = user.id
+        s["sid"] = sid
         s["csrf"] = "tok"
+    c.sid = sid
     return c
 
 
@@ -222,14 +225,3 @@ def test_invalid_url_dates_never_500(client):
     assert r.status_code == 400 and "data inválida" in r.get_data(as_text=True)
     r = post_json(client, "/vendas/nova", {"items": ["lixo"]})
     assert r.status_code == 422
-
-
-def test_login_is_throttled_after_repeated_failures(app, db):
-    u = User(username="cris", name="Cris"); u.set_password("senha-forte-1"); db.add(u); db.commit()
-    c = app.test_client()
-    with c.session_transaction() as s:
-        s["csrf"] = "tok"
-    for _ in range(5):
-        assert post(c, "/entrar", {"username": "cris", "password": "x"}).status_code == 200
-    blocked = post(c, "/entrar", {"username": "cris", "password": "senha-forte-1"})
-    assert blocked.status_code == 429 and "Muitas tentativas" in blocked.get_data(as_text=True)

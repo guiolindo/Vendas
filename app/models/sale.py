@@ -108,6 +108,7 @@ class Payment(Base):
     method: Mapped[str] = mapped_column(String(20))
     paid_at: Mapped[date] = mapped_column(Date)
     note: Mapped[str | None] = mapped_column(String(255))
+    client_token: Mapped[str | None] = mapped_column(String(80), unique=True)  # evita pagamento duplicado por duplo clique
     created_at: Mapped[datetime] = mapped_column(default=clock.now)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     voided_at: Mapped[datetime | None]

@@ -10,7 +10,7 @@ from ..schemas.inputs import product_from_form
 from ..schemas.parsing import Form
 from ..services import products as svc
 from ..services import stock
-from .helpers import (current_user_id, db, handle_business_errors, page_number,
+from .helpers import (audit_event, current_user_id, db, handle_business_errors, page_number,
                       remembered_args)
 
 bp = Blueprint("products", __name__, url_prefix="/produtos")
@@ -113,5 +113,6 @@ def toggle(product_id: int):
 @handle_business_errors
 def delete(product_id: int):
     svc.delete_product(db(), product_id)
+    audit_event("produto_excluido", f"#{product_id}")
     flash("Produto excluído.", "success")
     return redirect(url_for("products.index"))

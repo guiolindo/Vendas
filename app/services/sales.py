@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -12,6 +12,7 @@ from .. import clock
 from ..db import atomic
 from ..domain.money import MAX_CENTS, format_brl, percent_of
 from ..domain.payment_methods import METHODS
+from ..domain.text import limited
 from ..errors import BusinessError, NotFound
 from ..models import Customer, Payment, Product, Sale, SaleItem
 from .stock import MAX_QTY, apply_movement
@@ -70,7 +71,12 @@ def create_sale(session: Session, data: SaleInput, user_id: int | None = None) -
         if not data.items:
             raise BusinessError("Adicione pelo menos um produto à venda.", field="items")
 
+        limited(data.notes, 500, "Observação", "notes")
         sale_date = data.sale_date or today
+        if sale_date < today - timedelta(days=3650):
+            raise BusinessError("A data da venda está muito no passado.", field="sale_date")
+        if data.due_date and data.due_date > today + timedelta(days=3650):
+            raise BusinessError("O vencimento está muito distante.", field="due_date")
         if sale_date > today:
             raise BusinessError("A data da venda não pode ser no futuro.", field="sale_date")
 
@@ -158,6 +164,7 @@ def update_sale(session: Session, sale_id: int, customer_id: int | None, due_dat
                 notes: str | None) -> Sale:
     """Corrige cliente, vencimento e observações. Itens e valores não mudam:
     para isso, cancele e registre a venda de novo (o histórico fica íntegro)."""
+    limited(notes, 500, "Observação", "notes")
     with atomic(session):
         sale = session.get(Sale, sale_id, with_for_update=True)
         if sale is None:

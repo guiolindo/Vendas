@@ -10,6 +10,7 @@ from .. import clock
 from ..db import atomic
 from ..domain.money import format_brl
 from ..domain.payment_methods import METHODS
+from ..domain.text import limited
 from ..errors import BusinessError, NotFound
 from ..models import Customer, Payment, Sale
 
@@ -34,20 +35,26 @@ def _check_common(amount_cents: int, method: str, paid_at: date | None) -> date:
 
 
 def _add_payment(session: Session, sale: Sale, amount: int, method: str, paid_at: date,
-                 note: str | None, user_id: int | None) -> Payment:
+                 note: str | None, user_id: int | None, token: str | None = None) -> Payment:
     if paid_at < sale.sale_date:
         raise BusinessError("O pagamento não pode ser anterior à data da venda.", field="paid_at")
+    limited(note, 255, "Observação", "note")
     payment = Payment(sale_id=sale.id, amount_cents=amount, method=method, paid_at=paid_at,
-                      note=(note or "").strip() or None, created_by=user_id)
+                      note=(note or "").strip() or None, created_by=user_id, client_token=token)
     session.add(payment)
     return payment
 
 
 def register_payment(session: Session, sale_id: int, amount_cents: int, method: str,
                      paid_at: date | None = None, note: str | None = None,
-                     user_id: int | None = None) -> Payment:
+                     user_id: int | None = None, token: str | None = None) -> Payment:
+    """`token` identifica o envio do formulário: reenviar (duplo clique, Voltar) não paga duas vezes."""
     paid_at = _check_common(amount_cents, method, paid_at)
     with atomic(session):
+        if token:
+            existing = session.scalar(select(Payment).where(Payment.client_token == token))
+            if existing:
+                return existing
         sale = session.get(Sale, sale_id, with_for_update=True)
         if sale is None:
             raise NotFound("Venda não encontrada.")
@@ -61,7 +68,7 @@ def register_payment(session: Session, sale_id: int, amount_cents: int, method: 
                 f"O valor do pagamento não pode ser maior que o valor restante ({format_brl(remaining)}).",
                 field="amount",
             )
-        payment = _add_payment(session, sale, amount_cents, method, paid_at, note, user_id)
+        payment = _add_payment(session, sale, amount_cents, method, paid_at, note, user_id, token)
         session.flush()
         session.expire(sale)
     return payment
@@ -69,11 +76,15 @@ def register_payment(session: Session, sale_id: int, amount_cents: int, method: 
 
 def register_customer_payment(session: Session, customer_id: int, amount_cents: int, method: str,
                               paid_at: date | None = None, note: str | None = None,
-                              user_id: int | None = None) -> list[Payment]:
+                              user_id: int | None = None, token: str | None = None) -> list[Payment]:
     """Recebe um valor do cliente e o distribui nas vendas em aberto, da mais antiga
     (menor vencimento) para a mais nova. Gera um pagamento por venda atingida."""
     paid_at = _check_common(amount_cents, method, paid_at)
     with atomic(session):
+        if token:
+            done = list(session.scalars(select(Payment).where(Payment.client_token.like(f"{token}:%"))))
+            if done:
+                return done
         customer = session.get(Customer, customer_id)
         if customer is None:
             raise NotFound("Cliente não encontrado.")
@@ -102,7 +113,8 @@ def register_customer_payment(session: Session, customer_id: int, amount_cents: 
             if left <= 0:
                 break
             part = min(left, remaining)
-            payments.append(_add_payment(session, sale, part, method, paid_at, note, user_id))
+            payments.append(_add_payment(session, sale, part, method, paid_at, note, user_id,
+                                         f"{token}:{sale.id}" if token else None))
             left -= part
         session.flush()
         session.expire_all()

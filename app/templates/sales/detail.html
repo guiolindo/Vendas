@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, progress, csrf %}
+{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, progress, csrf, once %}
 {% block title %}Venda #{{ sale.id }}{% endblock %}
 {% block content %}
 {% set st = sale.status %}
@@ -38,7 +38,7 @@
     </section>
     <section class="panel">
       <header><h2>Pagamentos</h2></header>
-      {% if sale.payments %}<div class="table-wrap"><table>
+      {% if sale.payments %}<div class="table-wrap"><table class="cards">
         <thead><tr><th>Data</th><th class="right">Valor</th><th>Forma</th><th>Observação</th><th class="no-print"></th></tr></thead>
         <tbody>{% for p in sale.payments %}<tr class="{{ 'void' if p.voided else '' }}">
           <td>{{ p.paid_at|data }}</td><td class="right money {{ '' if p.voided else 'in-money' }}">{{ p.amount_cents|brl }}</td>
@@ -54,13 +54,13 @@
     {% if sale.notes %}<section class="panel"><header><h2>Observações</h2></header><div class="body">{{ sale.notes }}</div></section>{% endif %}
   </div>
 
-  <div class="stack no-print">
+  <div class="stack no-print mobile-first">
     {% if sale.remaining_cents > 0 and not sale.cancelled %}
     <section class="panel" id="receber">
       <header><h2>Registrar pagamento</h2></header>
       <div class="body">
         <form method="post" action="{{ url_for('sales.add_payment', sale_id=sale.id) }}">
-          {{ csrf() }}
+          {{ csrf() }}{{ once() }}
           <div class="field"><label for="amount">Valor recebido</label>
             <div class="money-input"><input id="amount" name="amount" inputmode="decimal" autocomplete="off" required placeholder="0,00" data-max="{{ sale.remaining_cents }}"></div>
             <p class="help">Falta {{ sale.remaining_cents|brl }}. <button type="button" class="link-button" data-fill="{{ sale.remaining_cents|brl_plain }}">Receber tudo</button></p></div>

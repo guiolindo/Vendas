@@ -32,6 +32,7 @@ def init_app(app) -> None:
     # globais: visíveis também dentro de macros importados
     env.globals["csrf_token"] = csrf_token
     env.globals["qs"] = qs
+    env.globals["new_token"] = lambda: __import__("uuid").uuid4().hex
 
     @app.context_processor
     def inject():

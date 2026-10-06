@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, due, progress, csrf %}
+{% extends "base.html" %}{% from "_macros.html" import icon, badge, owed, due, progress, csrf, once %}
 {% block title %}{{ customer.name }}{% endblock %}
 {% block content %}
 <div class="page-head"><div><a class="crumb" href="{{ url_for('customers.index') }}">‹ Clientes</a>
@@ -19,7 +19,7 @@
     {% if open_sales %}
     <section class="panel" id="em-aberto">
       <header><h2>Vendas em aberto</h2><span class="small muted">Da mais antiga para a mais nova</span></header>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table class="cards">
         <thead><tr><th>Venda</th><th>Vencimento</th><th class="right">Pago</th><th class="right">Falta pagar</th><th>Situação</th></tr></thead>
         <tbody>{% for sale in open_sales %}<tr class="row-link" data-href="{{ url_for('sales.detail', sale_id=sale.id) }}">
           <td><a href="{{ url_for('sales.detail', sale_id=sale.id) }}">#{{ sale.id }}</a><span class="sub">{{ sale.sale_date|data }}</span></td>
@@ -30,7 +30,7 @@
     {% endif %}
     <section class="panel">
       <header><h2>Todas as compras</h2></header>
-      {% if sales %}<div class="table-wrap"><table>
+      {% if sales %}<div class="table-wrap"><table class="cards">
         <thead><tr><th>Venda</th><th>Data</th><th class="right">Total</th><th class="right">Falta pagar</th><th>Situação</th></tr></thead>
         <tbody>{% for sale in sales %}<tr class="row-link" data-href="{{ url_for('sales.detail', sale_id=sale.id) }}">
           <td><a href="{{ url_for('sales.detail', sale_id=sale.id) }}">#{{ sale.id }}</a></td><td>{{ sale.sale_date|data }}</td>
@@ -44,7 +44,7 @@
       <header><h2>Receber pagamento</h2></header>
       <div class="body">
         <form method="post" action="{{ url_for('customers.receive', customer_id=customer.id) }}" data-receive>
-          {{ csrf() }}
+          {{ csrf() }}{{ once() }}
           <div class="field"><label for="amount">Valor recebido</label>
             <div class="money-input"><input id="amount" name="amount" inputmode="decimal" autocomplete="off" required placeholder="0,00" data-max="{{ s.pending }}"></div>
             <p class="help">Ele paga primeiro o que venceu antes. <button type="button" class="link-button" data-fill="{{ s.pending|brl_plain }}">Receber tudo ({{ s.pending|brl }})</button></p></div>
@@ -60,7 +60,7 @@
     {% endif %}
     <section class="panel">
       <header><h2>Pagamentos recebidos</h2></header>
-      {% if payments %}<div class="table-wrap"><table>
+      {% if payments %}<div class="table-wrap"><table class="cards">
         <thead><tr><th>Data</th><th>Forma</th><th class="right">Valor</th></tr></thead>
         <tbody>{% for p in payments %}<tr><td>{{ p.paid_at|data_curta }}<span class="sub"><a href="{{ url_for('sales.detail', sale_id=p.sale_id) }}">Venda #{{ p.sale_id }}</a></span></td>
           <td>{{ p.method|method_label }}{% if p.note %}<span class="sub">{{ p.note }}</span>{% endif %}</td><td class="right money in-money">{{ p.amount_cents|brl }}</td></tr>{% endfor %}</tbody></table></div>

@@ -1,7 +1,8 @@
 {% extends "base.html" %}{% from "_macros.html" import icon %}
 {% block title %}Nova venda{% endblock %}
+{% block bodyclass %}pos-page{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Nova venda</h1></div>
+<div class="page-head"><div><a class="crumb back-mobile" href="{{ url_for('dashboard.index') }}">‹ Voltar</a><h1>Nova venda</h1></div>
   <div class="kbd-hints no-print"><span><kbd>/</kbd> buscar produto</span><span><kbd>Enter</kbd> adiciona</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> concluir</span></div></div>
 
 <div class="pos" id="pos" data-token="{{ token }}" data-default-due="{{ default_due }}" data-today="{{ today|iso }}"
@@ -75,7 +76,7 @@
     </section>
 
     <div class="alert-box" id="sale-error" role="alert" hidden></div>
-    <button class="btn primary finish" id="finish" type="button" disabled>Concluir venda</button>
+    <div class="finish-bar"><button class="btn primary finish" id="finish" type="button" disabled>Concluir venda</button></div>
   </div>
 </div>
 {% endblock %}

@@ -25,14 +25,32 @@ def csrf_token() -> str:
 
 
 def safe_next(target: str | None, fallback: str) -> str:
-    """Só aceita redirecionamento para caminhos do próprio sistema."""
-    if target and target.startswith("/") and not target.startswith("//") and not urlparse(target).netloc:
+    """Só aceita redirecionamento para caminhos do próprio sistema.
+    Barra invertida é recusada: os navegadores tratam "/\\evil.com" como "//evil.com"."""
+    if (target and target.startswith("/") and not target.startswith("//") and "\\" not in target
+            and not any(ord(c) < 32 for c in target) and not urlparse(target).netloc):
         return target
     return fallback
 
 
+def client_ip_hash() -> str | None:
+    from ..services.security import pseudonymize
+    return pseudonymize(current_app.config["SECRET_KEY"], request.remote_addr)
+
+
+def audit_event(action: str, detail: str | None = None) -> None:
+    """Registra um evento sensível na trilha de auditoria (quem, o quê, de qual origem pseudonimizada)."""
+    from ..services.security import audit
+    audit(db(), action, session_user_id(), detail, client_ip_hash())
+
+
+def session_user_id() -> int | None:
+    user = g.get("user")
+    return user.id if user is not None else None
+
+
 def current_user_id() -> int | None:
-    return session.get("user_id")
+    return session_user_id()
 
 
 def handle_business_errors(view: Callable) -> Callable:

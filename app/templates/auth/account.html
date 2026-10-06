@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}Minha conta{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Minha conta</h1><p>{{ current_user.name }} · usuário <strong>{{ current_user.username }}</strong></p></div></div>
+<form method="post" class="panel form-narrow" autocomplete="off"><header><h2>Trocar senha</h2></header><div class="body">
+  {{ csrf() }}
+  <div class="field"><label for="current">Senha atual</label><input id="current" name="current" type="password" autocomplete="current-password" required></div>
+  <div class="field"><label for="new">Nova senha <span class="hint">(8 ou mais, com letra e número)</span></label><input id="new" name="new" type="password" autocomplete="new-password" required></div>
+  <div class="field"><label for="new2">Repita a nova senha</label><input id="new2" name="new2" type="password" autocomplete="new-password" required></div>
+  <p class="help">Ao trocar, todos os outros aparelhos conectados são desconectados.</p>
+  <div class="form-foot"><button class="btn primary" type="submit">Trocar senha</button></div>
+</div></form>
+{% endblock %}

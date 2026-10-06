@@ -17,6 +17,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(default=clock.now)
+    password_changed_at: Mapped[datetime | None]
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)

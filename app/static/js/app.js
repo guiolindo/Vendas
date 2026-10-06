@@ -86,6 +86,32 @@
       kind.value === "ajuste" ? "Quantidade contada (o total que existe agora)" : "Quantidade que chegou";
   });
 
+  // Celular: folha "Mais", filtros recolhíveis, rótulos dos cartões
+  var sheet = document.getElementById("more-sheet");
+  document.addEventListener("click", function (e) {
+    if (e.target.closest("[data-more]")) { sheet.hidden = false; return; }
+    if (e.target.closest("[data-more-close]") || (sheet && !sheet.hidden && e.target.closest("#more-sheet a"))) sheet.hidden = true;
+    var tgl = e.target.closest("[data-filters-toggle]");
+    if (tgl) { var f = tgl.closest(".filters"), open = f.classList.toggle("open"); tgl.setAttribute("aria-expanded", open); }
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && sheet) sheet.hidden = true; });
+  document.querySelectorAll("table.cards").forEach(function (table) {
+    var heads = Array.prototype.map.call(table.querySelectorAll("thead th"), function (th) { return th.textContent.trim(); });
+    table.querySelectorAll("tbody tr").forEach(function (tr) {
+      Array.prototype.forEach.call(tr.children, function (td, i) {
+        if (!td.hasAttribute("data-label")) td.setAttribute("data-label", heads[i] || "");
+        if (i > 0 && td.textContent.trim() === "—") td.setAttribute("data-empty", "");
+      });
+    });
+  });
+  document.querySelectorAll(".filters").forEach(function (f) {
+    // se há filtro aplicado, o botão avisa
+    var active = Array.prototype.some.call(f.querySelectorAll("select, input[type=date], input:not([type=hidden]):not([data-search]):not([type=search])"), function (el) {
+      return el.name !== "aba" && el.value && !(el.tagName === "SELECT" && el.selectedIndex === 0);
+    });
+    var t = f.querySelector("[data-filters-toggle]"); if (t && active) t.textContent = "Filtros (ativos)";
+  });
+
   // Atalhos: N = nova venda; "/" = foco na busca da página.
   document.addEventListener("keydown", function (e) {
     var tag = (e.target.tagName || "").toLowerCase();

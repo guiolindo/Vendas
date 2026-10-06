@@ -7,9 +7,11 @@
   <h1>Primeiro acesso</h1>
   <p class="muted" style="margin-bottom:1rem">Crie o usuário que vai usar o sistema.</p>
   {% for category, message in get_flashed_messages(with_categories=true) %}<div class="alert-box" role="alert">{{ message }}</div>{% endfor %}
+  {% if need_token %}<div class="field"><label for="st">Código de instalação</label><input id="st" name="setup_token" autocomplete="off" required>
+    <p class="help">É o valor da variável VENDAS_SETUP_TOKEN definida no servidor.</p></div>{% endif %}
   <div class="field"><label for="n">Seu nome</label><input id="n" name="name" autofocus required></div>
   <div class="field"><label for="u">Usuário para entrar</label><input id="u" name="username" autocomplete="username" required></div>
-  <div class="field"><label for="p">Senha <span class="hint">(mínimo 8 caracteres)</span></label><input id="p" name="password" type="password" autocomplete="new-password" required></div>
+  <div class="field"><label for="p">Senha <span class="hint">(8 ou mais, com letra e número)</span></label><input id="p" name="password" type="password" autocomplete="new-password" required></div>
   <div class="field"><label for="p2">Repita a senha</label><input id="p2" name="password2" type="password" autocomplete="new-password" required></div>
   <button class="btn primary" style="width:100%" type="submit">Criar e entrar</button>
 </form></div></body></html>

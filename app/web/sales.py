@@ -15,7 +15,7 @@ from ..schemas.inputs import sale_from_json
 from ..schemas.parsing import Form
 from ..services import payments, sales as svc
 from ..domain.status import Status
-from .helpers import (current_user_id, db, handle_business_errors, page_number,
+from .helpers import (audit_event, current_user_id, db, handle_business_errors, page_number,
                       remembered_args, safe_next)
 
 bp = Blueprint("sales", __name__)
@@ -51,7 +51,7 @@ def create():
         sale = svc.create_sale(db(), sale_from_json(payload), current_user_id())
     except BusinessError as e:
         return jsonify(ok=False, message=e.message, field=e.field), 422
-    current_app.logger.info("venda #%s total=%s por usuario=%s", sale.id, sale.total_cents, current_user_id())
+    audit_event("venda_criada", f"#{sale.id} total={sale.total_cents}")
     flash(f"Venda #{sale.id} registrada com sucesso.", "success")
     return jsonify(ok=True, redirect=url_for("sales.detail", sale_id=sale.id))
 
@@ -91,7 +91,9 @@ def add_payment(sale_id: int):
     f = Form(request.form)
     payment = payments.register_payment(
         db(), sale_id, f.money("amount", "Valor", required=True), f.text("method"),
-        f.date("paid_at", "Data do pagamento"), f.text("note") or None, current_user_id())
+        f.date("paid_at", "Data do pagamento"), f.text("note") or None, current_user_id(),
+        token=f.text("request_token")[:60] or None)
+    audit_event("pagamento", f"venda #{sale_id} {payment.amount_cents}")
     flash(f"Pagamento de {format_brl(payment.amount_cents)} registrado.", "success")
     return redirect(safe_next(request.form.get("next"), url_for("sales.detail", sale_id=sale_id)))
 
@@ -100,7 +102,7 @@ def add_payment(sale_id: int):
 @handle_business_errors
 def cancel(sale_id: int):
     svc.cancel_sale(db(), sale_id, request.form.get("reason", ""), current_user_id())
-    current_app.logger.info("venda #%s cancelada por usuario=%s", sale_id, current_user_id())
+    audit_event("venda_cancelada", f"#{sale_id}")
     flash(f"Venda #{sale_id} cancelada. O estoque foi devolvido.", "success")
     return redirect(url_for("sales.detail", sale_id=sale_id))
 
@@ -109,5 +111,6 @@ def cancel(sale_id: int):
 @handle_business_errors
 def void_payment(payment_id: int):
     payment = payments.void_payment(db(), payment_id, request.form.get("reason"), current_user_id())
+    audit_event("pagamento_estornado", f"#{payment_id} venda #{payment.sale_id}")
     flash(f"Pagamento de {format_brl(payment.amount_cents)} estornado. O registro continua no histórico.", "success")
     return redirect(url_for("sales.detail", sale_id=payment.sale_id))

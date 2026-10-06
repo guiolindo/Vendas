@@ -6,6 +6,7 @@
 <section class="panel">
   {{ remembered_bar(remembered) }}
   <form class="filters" method="get">
+    <button type="button" class="btn filters-toggle" data-filters-toggle aria-expanded="false">Filtros</button>
     <div class="field grow"><label for="q">Buscar</label><input id="q" name="q" value="{{ args.get('q','') }}" placeholder="Nome, telefone ou documento" data-search></div>
     <div class="field"><label for="mostrar">Mostrar</label><select id="mostrar" name="mostrar">
       <option value="">Todos</option><option value="devendo" {{ 'selected' if args.get('mostrar') == 'devendo' }}>Com saldo a pagar</option><option value="vencidos" {{ 'selected' if args.get('mostrar') == 'vencidos' }}>Em atraso</option></select></div>
@@ -15,7 +16,7 @@
     {% if args %}<a class="btn ghost" href="?limpar=1">Limpar</a>{% endif %}
   </form>
   {% if page.items %}
-  <div class="table-wrap"><table>
+  <div class="table-wrap"><table class="cards">
     <thead><tr><th>Cliente</th><th>Telefone</th><th class="right">Comprou</th><th class="right">Deve</th><th class="right">Vencido</th><th>Última compra</th></tr></thead>
     <tbody>{% for r in page.items %}
     <tr class="row-link" data-href="{{ url_for('customers.detail', customer_id=r.customer.id) }}">

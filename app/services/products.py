@@ -6,8 +6,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import atomic
+from ..domain.text import limited
 from ..errors import BusinessError, NotFound
 from ..models import Category, Product, SaleItem, StockMovement
+from ..domain.money import MAX_CENTS
 from .stock import MAX_QTY, apply_movement
 
 
@@ -40,6 +42,11 @@ def _validate(data: ProductInput) -> None:
         raise BusinessError("O custo não pode ser negativo.", field="cost")
     if not 0 <= data.min_stock <= MAX_QTY:
         raise BusinessError("O estoque mínimo precisa ser zero ou mais.", field="min_stock")
+    limited(data.name, 160, "Nome", "name"); limited(data.code, 40, "Código", "code"); limited(data.sku, 60, "SKU", "sku")
+    limited(data.category_name, 80, "Categoria", "category"); limited(data.unit, 10, "Unidade", "unit")
+    limited(data.description, 2000, "Descrição", "description")
+    if data.price_cents > MAX_CENTS or data.cost_cents > MAX_CENTS:
+        raise BusinessError("Valor muito alto.", field="price")
     if not 0 <= data.initial_stock <= MAX_QTY:
         raise BusinessError("O estoque inicial precisa ser zero ou mais.", field="initial_stock")
 

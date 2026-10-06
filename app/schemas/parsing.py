@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Mapping
 
 from ..domain.money import MoneyError, parse_money
+from ..domain.text import MAX_ID
 from ..errors import BusinessError
 
 
@@ -37,11 +38,13 @@ class Form:
             raise BusinessError(f"{label}: use um número inteiro.", field=name) from None
         if value < minimum:
             raise BusinessError(f"{label}: o mínimo é {minimum}.", field=name)
+        if value > 1_000_000:
+            raise BusinessError(f"{label}: o máximo é 1.000.000.", field=name)
         return value
 
     def optional_int(self, name: str) -> int | None:
         raw = self.text(name)
-        return int(raw) if raw.isdigit() else None
+        return int(raw) if raw.isdigit() and int(raw) <= MAX_ID else None
 
     def date(self, name: str, label: str) -> date | None:
         raw = self.text(name)

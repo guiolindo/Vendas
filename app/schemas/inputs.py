@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from ..domain.money import MoneyError, parse_money
+from ..domain.text import MAX_ID
 from ..errors import BusinessError
 from ..services.customers import CustomerInput
 from ..services.products import ProductInput
@@ -47,12 +48,17 @@ def _money(value: Any, label: str, field: str) -> int:
 
 def sale_from_json(payload: dict) -> SaleInput:
     items = []
-    for raw in payload.get("items") or []:
+    raw_items = payload.get("items") or []
+    if not isinstance(raw_items, list) or len(raw_items) > 200:
+        raise BusinessError("A venda pode ter no máximo 200 itens.", field="items")
+    for raw in raw_items:
         if not isinstance(raw, dict):
             raise BusinessError("Há um item inválido na venda.", field="items")
         try:
             quantity = int(raw.get("quantity"))
             product_id = int(raw.get("product_id"))
+            if isinstance(raw.get("quantity"), bool) or not 0 < product_id <= MAX_ID or abs(quantity) > 10**9:
+                raise ValueError
         except (TypeError, ValueError):
             raise BusinessError("Há um item com quantidade inválida.", field="items") from None
         price = raw.get("price")

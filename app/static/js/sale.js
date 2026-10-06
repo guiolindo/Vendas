@@ -69,8 +69,9 @@
     } else {
       state.cart.push({ id: p.id, name: p.name, unit: p.unit, list: p.price_cents, price: null, qty: 1, stock: p.stock });
     }
-    $("product-search").value = ""; loadProducts(); changed();
-    $("product-search").focus();
+    $("product-search").value = ""; loadProducts();
+    if (phone.matches) $("product-search").blur(); else $("product-search").focus();  // no celular, o teclado não deve cobrir o carrinho
+    changed();
   }
 
   // ── carrinho
@@ -132,7 +133,15 @@
     else { s.className += " warn"; s.textContent = "Pago " + Money.format(paid) + " · restam " + Money.format(remaining) + ($("due").value ? " para " + dateBR($("due").value) : "") + "."; }
   }
 
-  function changed() { renderCart(); renderTotals(); renderPayment(); saveDraft(); }
+  var phone = window.matchMedia("(max-width: 860px)");
+  function updateResultsVisibility() {
+    var s = $("product-search");
+    $("product-results").classList.toggle("show", document.activeElement === s || !!s.value || state.cart.length === 0);
+  }
+  function changed() {
+    pos.classList.toggle("is-empty", state.cart.length === 0);
+    renderCart(); renderTotals(); renderPayment(); saveDraft(); updateResultsVisibility();
+  }
   function renderTotals() {
     var d = discount();
     $("t-subtotal").textContent = Money.format(subtotal());
@@ -143,7 +152,7 @@
   }
 
   function flash(msg) { showError(msg); setTimeout(function () { if ($("sale-error").textContent === msg) $("sale-error").hidden = true; }, 4000); }
-  function showError(msg) { var e = $("sale-error"); e.textContent = msg; e.hidden = false; }
+  function showError(msg) { var e = $("sale-error"); e.textContent = msg; e.hidden = false; if (phone.matches) e.scrollIntoView({ block: "center", behavior: "smooth" }); }
 
   // ── rascunho: sobrevive a recarregar a página
   function saveDraft() {
@@ -188,7 +197,9 @@
   }
 
   // ── eventos
-  $("product-search").addEventListener("input", loadProducts);
+  $("product-search").addEventListener("input", function () { loadProducts(); updateResultsVisibility(); });
+  $("product-search").addEventListener("focus", updateResultsVisibility);
+  $("product-search").addEventListener("blur", function () { setTimeout(updateResultsVisibility, 200); });
   $("product-search").addEventListener("keydown", function (e) {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault(); var n = state.results.length; if (!n) return;
