@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import clock
@@ -49,6 +50,18 @@ def register_payment(session: Session, sale_id: int, amount_cents: int, method: 
                      paid_at: date | None = None, note: str | None = None,
                      user_id: int | None = None, token: str | None = None) -> Payment:
     """`token` identifica o envio do formulário: reenviar (duplo clique, Voltar) não paga duas vezes."""
+    try:
+        return _register_payment(session, sale_id, amount_cents, method, paid_at, note, user_id, token)
+    except IntegrityError:
+        session.rollback()
+        existing = session.scalar(select(Payment).where(Payment.client_token == token)) if token else None
+        if existing:
+            return existing  # a outra requisição simultânea já gravou
+        raise
+
+
+def _register_payment(session: Session, sale_id: int, amount_cents: int, method: str,
+                      paid_at: date | None, note: str | None, user_id: int | None, token: str | None) -> Payment:
     paid_at = _check_common(amount_cents, method, paid_at)
     with atomic(session):
         if token:
@@ -77,6 +90,19 @@ def register_payment(session: Session, sale_id: int, amount_cents: int, method: 
 def register_customer_payment(session: Session, customer_id: int, amount_cents: int, method: str,
                               paid_at: date | None = None, note: str | None = None,
                               user_id: int | None = None, token: str | None = None) -> list[Payment]:
+    try:
+        return _register_customer_payment(session, customer_id, amount_cents, method, paid_at, note, user_id, token)
+    except IntegrityError:
+        session.rollback()
+        done = list(session.scalars(select(Payment).where(Payment.client_token.like(f"{token}:%")))) if token else []
+        if done:
+            return done
+        raise
+
+
+def _register_customer_payment(session: Session, customer_id: int, amount_cents: int, method: str,
+                               paid_at: date | None, note: str | None, user_id: int | None,
+                               token: str | None) -> list[Payment]:
     """Recebe um valor do cliente e o distribui nas vendas em aberto, da mais antiga
     (menor vencimento) para a mais nova. Gera um pagamento por venda atingida."""
     paid_at = _check_common(amount_cents, method, paid_at)

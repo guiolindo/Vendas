@@ -2,9 +2,17 @@
 {% block title %}Início{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Início</h1><p>{{ today.strftime('%d/%m/%Y') }}</p></div>
+  <div><h1>{{ 'Painel de ' ~ chosen.name if chosen else 'Início' }}</h1>
+    <p>{{ today.strftime('%d/%m/%Y') }}{% if chosen %} · só a parte de {{ chosen.name }}: os produtos dela e a fatia dela de cada venda{% endif %}</p></div>
   <div class="actions"><a class="btn primary" href="{{ url_for('sales.new') }}">{{ icon('plus') }} Nova venda</a></div>
 </div>
+
+{% if people %}
+<nav class="people-tabs" aria-label="Painel de quem?">
+  <a href="{{ url_for('dashboard.index', pessoa='geral') }}" {% if not chosen %}aria-current="true"{% endif %}>Geral</a>
+  {% for o in people %}<a href="{{ url_for('dashboard.index', pessoa=o.id) }}" {% if chosen and chosen.id == o.id %}aria-current="true"{% endif %}>{{ o.name }}</a>{% endfor %}
+</nav>
+{% endif %}
 
 <section class="ledger" aria-label="Resumo">
   <div><span class="label">Vendido hoje</span><span class="value">{{ d.sold_today|brl }}</span>
@@ -18,6 +26,18 @@
   <a href="{{ url_for('collections.index', aba='vencidos') }}" class="{{ 'alert' if d.overdue else '' }}"><span class="label">Vencido</span><span class="value">{{ d.overdue|brl }}</span>
     <span class="sub">{% if d.overdue %}{{ d.overdue_customers }} {{ 'cliente' if d.overdue_customers == 1 else 'clientes' }} em atraso{% else %}Nada em atraso{% endif %}</span></a>
 </section>
+
+{% if not chosen and d.by_owner %}
+<section class="panel" style="margin-top:1rem">
+  <header><h2>Por pessoa</h2><span class="small muted">Vendido e recebido neste mês</span></header>
+  <div class="table-wrap"><table class="cards">
+    <thead><tr><th>Pessoa</th><th class="right">Vendido</th><th class="right">Recebido</th><th class="right">A receber</th><th class="right">Vencido</th></tr></thead>
+    <tbody>{% for r in d.by_owner %}<tr>
+      <td>{% if r.owner %}<a href="{{ url_for('dashboard.index', pessoa=r.owner.id) }}">{{ r.owner.name }}</a>{% if not r.owner.active %} <span class="badge inativo">Inativa</span>{% endif %}{% else %}<span class="muted">Produtos sem dono</span>{% endif %}</td>
+      <td class="right money">{{ r.acc.sold_month|brl }}</td><td class="right money in-money">{{ r.acc.received_month|brl }}</td>
+      <td class="right money">{{ r.acc.receivable|brl }}</td><td class="right money {{ 'owe-late' if r.acc.overdue else 'muted' }}">{{ r.acc.overdue|brl if r.acc.overdue else '—' }}</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endif %}
 
 <div class="cols wide-left" style="margin-top:1rem">
   <div class="stack">
@@ -74,7 +94,7 @@
       {% else %}<div class="empty">Nenhum produto abaixo do mínimo.</div>{% endif %}
     </section>
 
-    <section class="panel">
+    {% if not chosen %}<section class="panel">
       <header><h2>Últimos recebimentos</h2></header>
       {% if d.recent_payments %}
       <div class="table-wrap"><table><tbody>{% for p in d.recent_payments %}
@@ -82,7 +102,7 @@
             <td class="right money in-money">{{ p.amount_cents|brl }}</td></tr>
       {% endfor %}</tbody></table></div>
       {% else %}<div class="empty">Nenhum pagamento registrado ainda.</div>{% endif %}
-    </section>
+    </section>{% endif %}
   </div>
 </div>
 {% endblock %}

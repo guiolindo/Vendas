@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 from .. import clock
 from ..db import Base
 from ..domain.status import Status, sale_status
-from .catalog import Product
+from .catalog import Owner, Product
 from .customer import Customer
 
 
@@ -81,6 +81,8 @@ class SaleItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     sale_id: Mapped[int] = mapped_column(ForeignKey("sales.id", ondelete="CASCADE"), index=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="RESTRICT"), index=True)
+    # dono do produto NO MOMENTO da venda: trocar o dono depois não reescreve o passado
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("owners.id", ondelete="RESTRICT"), index=True)
     product_name: Mapped[str] = mapped_column(String(160))
     product_code: Mapped[str] = mapped_column(String(40))
     unit: Mapped[str] = mapped_column(String(10), default="un")
@@ -91,6 +93,7 @@ class SaleItem(Base):
 
     sale: Mapped[Sale] = relationship(back_populates="items")
     product: Mapped[Product] = relationship()
+    owner: Mapped[Owner | None] = relationship(foreign_keys=[owner_id])
 
 
 class Payment(Base):

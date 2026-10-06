@@ -29,7 +29,7 @@
       <header><h2>Produtos</h2></header>
       <div class="table-wrap"><table>
         <thead><tr><th>Produto</th><th class="right">Qtd.</th><th class="right">Preço</th><th class="right">Subtotal</th></tr></thead>
-        <tbody>{% for i in sale.items %}<tr><td><a href="{{ url_for('products.detail', product_id=i.product_id) }}">{{ i.product_name }}</a><span class="sub">{{ i.product_code }}</span></td>
+        <tbody>{% for i in sale.items %}<tr><td><a href="{{ url_for('products.detail', product_id=i.product_id) }}">{{ i.product_name }}</a><span class="sub">{{ i.product_code }}{% if i.owner %} · <span class="owner-tag">{{ i.owner.name }}</span>{% endif %}</span></td>
           <td class="right num">{{ i.quantity }} {{ i.unit }}</td><td class="right money">{{ i.unit_price_cents|brl }}</td><td class="right money">{{ i.total_cents|brl }}</td></tr>{% endfor %}</tbody>
         <tfoot>
           {% if sale.discount_cents %}<tr><td colspan="3" class="right">Subtotal</td><td class="right money">{{ sale.subtotal_cents|brl }}</td></tr>

@@ -25,6 +25,7 @@ def product_from_form(data: Mapping[str, str], creating: bool = False) -> Produc
         description=f.text("description") or None,
         active=True if creating else f.flag("active"),
         initial_stock=f.integer("initial_stock", "Estoque inicial") if creating else 0,
+        owner_id=f.optional_int("owner"),
     )
 
 

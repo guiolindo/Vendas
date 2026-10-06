@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head"><div><a class="crumb" href="{{ url_for('products.index') }}">‹ Produtos</a>
   <h1>{{ product.name }} {% if not product.active %}<span class="badge inativo">Inativo</span>{% endif %}</h1>
-  <p>{{ product.code }}{% if product.sku %} · SKU {{ product.sku }}{% endif %}{% if product.category %} · {{ product.category.name }}{% endif %}</p></div>
+  <p>{% if product.owner %}<span class="owner-tag">{{ product.owner.name }}</span> · {% endif %}{{ product.code }}{% if product.sku %} · SKU {{ product.sku }}{% endif %}{% if product.category %} · {{ product.category.name }}{% endif %}</p></div>
   <div class="actions"><a class="btn" href="{{ url_for('products.edit', product_id=product.id) }}">{{ icon('edit') }} Editar</a></div></div>
 
 <section class="ledger compact">

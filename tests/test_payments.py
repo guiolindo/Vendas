@@ -220,3 +220,45 @@ def test_concurrent_sales_never_oversell(database, session, make_product):
     session.refresh(p)
     assert p.stock_qty == 0
     assert session.scalar(select(func.count()).select_from(Sale)) == 5
+
+
+def test_same_token_sent_simultaneously_creates_one_sale_and_one_payment(database, session, make_product, customer):
+    """Duplo clique de verdade: duas requisições com o mesmo token chegam juntas."""
+    p = make_product("Item", price=10000, stock=20)
+    product_id, customer_id = p.id, customer.id
+    sale_results, pay_results = [], []
+
+    def sell():
+        s = database.session()
+        try:
+            sale = sale_svc.create_sale(s, SaleInput(items=[ItemInput(product_id, 1)], customer_id=customer_id,
+                                                     due_date=TODAY + timedelta(days=5), client_token="dup-sale"))
+            sale_results.append(sale.id)
+        except Exception as e:  # noqa: BLE001
+            sale_results.append(repr(e))
+        finally:
+            s.close()
+
+    threads = [threading.Thread(target=sell) for _ in range(6)]
+    [t.start() for t in threads]; [t.join() for t in threads]
+    assert len(set(sale_results)) == 1 and isinstance(sale_results[0], int), sale_results
+    sale_id = sale_results[0]
+
+    def payer():
+        s = database.session()
+        try:
+            pay.register_payment(s, sale_id, 3000, "pix", token="dup-pay")
+            pay_results.append("ok")
+        except Exception as e:  # noqa: BLE001
+            pay_results.append(repr(e))
+        finally:
+            s.close()
+
+    threads = [threading.Thread(target=payer) for _ in range(6)]
+    [t.start() for t in threads]; [t.join() for t in threads]
+    assert pay_results == ["ok"] * 6, pay_results
+    session.rollback()
+    assert session.scalar(select(func.count()).select_from(Sale)) == 1
+    assert session.scalar(select(func.sum(Payment.amount_cents))) == 3000
+    session.refresh(p)
+    assert p.stock_qty == 19

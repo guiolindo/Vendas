@@ -43,10 +43,10 @@ def create_app(overrides: dict | None = None) -> Flask:
 
     _setup_logging(app)
 
-    from .web import auth, collections, customers, dashboard, products, reports, sales, templating, api
+    from .web import auth, collections, customers, dashboard, owners, products, reports, sales, templating, api
     templating.init_app(app)
     auth.init_app(app)
-    for module in (auth, dashboard, products, customers, sales, collections, reports, api):
+    for module in (auth, dashboard, owners, products, customers, sales, collections, reports, api):
         app.register_blueprint(module.bp)
 
     @app.teardown_appcontext
@@ -104,6 +104,15 @@ def create_app(overrides: dict | None = None) -> Flask:
         return render_template("error.html", title="Não foi possível continuar", message=e.message), 400
 
     from sqlalchemy.exc import DataError
+
+    from sqlalchemy.exc import IntegrityError
+
+    @app.errorhandler(IntegrityError)
+    def conflict(_e):
+        from .web.helpers import db
+        db().rollback()
+        return render_template("error.html", title="Conflito de dados",
+                               message="Outra pessoa alterou isto ao mesmo tempo. Volte, atualize a página e tente de novo."), 409
 
     @app.errorhandler(DataError)
     def bad_data(_e):

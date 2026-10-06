@@ -12,6 +12,9 @@
   <div class="pos-left">
     <section class="panel">
       <div class="body">
+        {% if owners %}<div class="owner-filter" role="group" aria-label="Produtos de quem">
+          <button type="button" class="chip" data-owner="" aria-pressed="true">Todos</button>
+          {% for o in owners %}<button type="button" class="chip" data-owner="{{ o.id }}" aria-pressed="false">{{ o.name }}</button>{% endfor %}</div>{% endif %}
         <div class="search-box">{{ icon('search') }}
           <input id="product-search" type="search" autocomplete="off" placeholder="Buscar produto por nome, código ou SKU" aria-label="Buscar produto"
                  role="combobox" aria-expanded="false" aria-controls="product-results" autofocus>

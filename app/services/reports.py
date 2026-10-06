@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from sqlalchemy import and_, case, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..domain.money import format_brl
 from ..domain.payment_methods import label as method_label
@@ -17,6 +17,7 @@ from ..models import Customer, Payment, Product, Sale, SaleItem
 from ..repositories import customers as customer_repo
 from ..repositories import sales as sale_repo
 from ..repositories.sales import ACTIVE, REMAINING, SaleFilters
+from . import owners as owner_svc
 
 
 @dataclass
@@ -43,6 +44,7 @@ class ReportParams:
     date_to: date | None = None
     customer_id: int | None = None
     product_id: int | None = None
+    owner_id: int | None = None
     status: str = ""
     sort: str = ""
 
@@ -54,6 +56,7 @@ CATALOG = {
     "recebimentos": ("Pagamentos recebidos", "Cada pagamento recebido no período, por forma de pagamento."),
     "a-receber": ("Valores a receber", "Vendas com saldo em aberto: pendentes, parciais e vencidas."),
     "estoque": ("Estoque", "Saldo atual, custo e valor de venda do estoque."),
+    "pessoas": ("Resultado por pessoa", "Quanto cada pessoa vendeu, custou, rendeu, recebeu e ainda tem a receber (a parte dela em cada venda)."),
     "movimento": ("Movimentação financeira", "Por dia: quanto foi vendido e quanto foi recebido."),
 }
 
@@ -110,6 +113,8 @@ def products_report(session: Session, p: ReportParams, today: date) -> Report:
         q = q.where(Sale.sale_date <= p.date_to)
     if p.customer_id:
         q = q.where(Sale.customer_id == p.customer_id)
+    if p.owner_id:
+        q = q.where(SaleItem.owner_id == p.owner_id)
     order = func.sum(SaleItem.total_cents) if p.sort == "valor" else func.sum(SaleItem.quantity)
     rows = [{"name": r.product_name, "code": r.product_code, "qty": r.qty, "revenue": r.revenue,
              "cost": r.cost, "margin": r.revenue - r.cost} for r in session.execute(q.order_by(order.desc()))]
@@ -117,7 +122,7 @@ def products_report(session: Session, p: ReportParams, today: date) -> Report:
             Column("revenue", "Valor vendido", "money"), Column("cost", "Custo", "money"),
             Column("margin", "Margem", "money")]
     return Report("produtos", *CATALOG["produtos"], cols, rows, _sum(rows, "qty", "revenue", "cost", "margin"),
-                  ("period", "customer", "sort_products"))
+                  ("period", "customer", "owner", "sort_products"))
 
 
 def customers_report(session: Session, p: ReportParams, today: date) -> Report:
@@ -155,13 +160,15 @@ def stock_report(session: Session, p: ReportParams, today: date) -> Report:
     q = select(Product).where(Product.active.is_(True)).order_by(Product.name)
     if p.status == "baixo":
         q = q.where(Product.stock_qty <= Product.min_stock)
+    if p.owner_id:
+        q = q.where(Product.owner_id == p.owner_id)
     rows = [{"name": x.name, "code": x.code, "stock": x.stock_qty, "min": x.min_stock, "unit": x.unit,
              "cost_value": x.stock_qty * x.cost_cents, "sale_value": x.stock_qty * x.price_cents}
             for x in session.scalars(q)]
     cols = [Column("name", "Produto"), Column("code", "Código"), Column("stock", "Em estoque", "int"),
             Column("min", "Mínimo", "int"), Column("unit", "Un."), Column("cost_value", "Valor a custo", "money"),
             Column("sale_value", "Valor de venda", "money")]
-    return Report("estoque", *CATALOG["estoque"], cols, rows, _sum(rows, "cost_value", "sale_value"), ("stock_status",))
+    return Report("estoque", *CATALOG["estoque"], cols, rows, _sum(rows, "cost_value", "sale_value"), ("owner", "stock_status"))
 
 
 def movement_report(session: Session, p: ReportParams, today: date) -> Report:
@@ -183,8 +190,38 @@ def movement_report(session: Session, p: ReportParams, today: date) -> Report:
     return Report("movimento", *CATALOG["movimento"], cols, rows, _sum(rows, "sold", "received", "difference"), ("period",))
 
 
+def owners_report(session: Session, p: ReportParams, today: date) -> Report:
+    """Por pessoa: vendido no período, custo, margem, recebido no período e a receber hoje."""
+    start = p.date_from or today.replace(day=1)
+    end = p.date_to or today
+    in_period_payments = select(Payment.sale_id).where(Payment.voided_at.is_(None), Payment.paid_at >= start, Payment.paid_at <= end)
+    sales = session.scalars(
+        select(Sale).where(ACTIVE, ((Sale.sale_date >= start) & (Sale.sale_date <= end)) | Sale.id.in_(in_period_payments)
+                           | (Sale.paid_cents < Sale.total_cents))
+        .options(selectinload(Sale.items), selectinload(Sale.payments))
+    ).unique().all()
+    names = {o.id: o.name for o in owner_svc.list_owners(session)}
+    acc = {oid: {"name": name, "sold": 0, "cost": 0, "received": 0, "receivable": 0} for oid, name in names.items()}
+    for sale in sales:
+        shares = owner_svc.sale_shares(sale)
+        got = owner_svc.period_received(sale, shares, start, end)
+        left = {k: shares[k] - v for k, v in owner_svc.owner_paid(shares, sale.total_cents, sale.paid_cents).items()}
+        for oid, share in shares.items():
+            row = acc.setdefault(oid, {"name": names.get(oid, "Produtos sem dono"), "sold": 0, "cost": 0, "received": 0, "receivable": 0})
+            row["received"] += got[oid]
+            row["receivable"] += left[oid] if sale.paid_cents < sale.total_cents else 0
+            if start <= sale.sale_date <= end:
+                row["sold"] += share
+                row["cost"] += sum(i.quantity * i.unit_cost_cents for i in sale.items if i.owner_id == oid)
+    rows = [{**r, "margin": r["sold"] - r["cost"]} for r in acc.values()]
+    cols = [Column("name", "Pessoa"), Column("sold", "Vendido", "money"), Column("cost", "Custo", "money"),
+            Column("margin", "Margem", "money"), Column("received", "Recebido", "money"),
+            Column("receivable", "A receber hoje", "money")]
+    return Report("pessoas", *CATALOG["pessoas"], cols, rows, _sum(rows, "sold", "cost", "margin", "received", "receivable"), ("period",))
+
+
 BUILDERS = {"vendas": sales_report, "produtos": products_report, "clientes": customers_report,
-            "recebimentos": payments_report, "a-receber": due_report, "estoque": stock_report,
+            "recebimentos": payments_report, "a-receber": due_report, "estoque": stock_report, "pessoas": owners_report,
             "movimento": movement_report}
 
 

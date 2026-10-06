@@ -107,6 +107,13 @@ def setup():
                     user.set_password(password)
                     db().add(user)
                     db().commit()
+                    for person in (request.form.get("person1", "").strip(), request.form.get("person2", "").strip()):
+                        if person and len(person) <= 80:
+                            from ..services import owners as owner_svc
+                            try:
+                                owner_svc.create_owner(db(), person)
+                            except Exception:
+                                db().rollback()
                     _start_session(user)
                     sec.audit(db(), "setup", user.id, None, ip)
                     flash(f"Tudo pronto, {name.split()[0]}. Comece cadastrando seus produtos.", "success")

@@ -26,6 +26,7 @@
       <a href="{{ url_for('collections.index') }}" {% if ep.startswith('collections.') %}aria-current="page"{% endif %}>{{ icon('wallet') }} Cobranças</a>
       <a href="{{ url_for('customers.index') }}" {% if ep.startswith('customers.') %}aria-current="page"{% endif %}>{{ icon('users') }} Clientes</a>
       <a href="{{ url_for('products.index') }}" {% if ep.startswith('products.') %}aria-current="page"{% endif %}>{{ icon('box') }} Produtos</a>
+      <a href="{{ url_for('owners.index') }}" {% if ep.startswith('owners.') %}aria-current="page"{% endif %}>{{ icon('users') }} Pessoas</a>
       <a href="{{ url_for('reports.index') }}" {% if ep.startswith('reports.') %}aria-current="page"{% endif %}>{{ icon('chart') }} Relatórios</a>
     </nav>
     <div class="side-foot">
@@ -49,6 +50,7 @@
   <div class="sheet-body" role="dialog" aria-label="Mais opções">
     <a href="{{ url_for('customers.index') }}">{{ icon('users') }} Clientes</a>
     <a href="{{ url_for('products.index') }}">{{ icon('box') }} Produtos</a>
+    <a href="{{ url_for('owners.index') }}">{{ icon('users') }} Pessoas</a>
     <a href="{{ url_for('reports.index') }}">{{ icon('chart') }} Relatórios</a>
     <a href="{{ url_for('auth.account') }}">{{ icon('edit') }} Minha conta e senha</a>
     <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -14,6 +14,16 @@ class Category(Base):
     name: Mapped[str] = mapped_column(String(80), unique=True)
 
 
+class Owner(Base):
+    """Pessoa a quem os produtos pertencem (o negócio é tocado por duas pessoas)."""
+
+    __tablename__ = "owners"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    active: Mapped[bool] = mapped_column(default=True)
+
+
 class Product(Base):
     __tablename__ = "products"
     __table_args__ = (
@@ -28,6 +38,7 @@ class Product(Base):
     sku: Mapped[str | None] = mapped_column(String(60), unique=True)
     name: Mapped[str] = mapped_column(String(160), index=True)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("owners.id", ondelete="RESTRICT"), index=True)
     price_cents: Mapped[int]
     cost_cents: Mapped[int] = mapped_column(default=0)
     # Saldo em cache. Só muda por `services.stock.apply_movement`, que também grava
@@ -40,6 +51,7 @@ class Product(Base):
     created_at: Mapped[datetime] = mapped_column(default=clock.now)
 
     category: Mapped[Category | None] = relationship()
+    owner: Mapped[Owner | None] = relationship()
 
     @property
     def low_stock(self) -> bool:

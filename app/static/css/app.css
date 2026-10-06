@@ -205,6 +205,16 @@ tr.row-link { cursor: pointer; }
 .tab.soon .t-value { color: var(--warn); }
 .tab.done .t-value { color: var(--ok); }
 
+/* seletor de painel: Geral | pessoa */
+.people-tabs { display: flex; gap: .35rem; margin-bottom: 1rem; overflow-x: auto; scrollbar-width: none; }
+.people-tabs a { flex: none; padding: .5rem 1rem; border: 1px solid var(--line); border-radius: 99px; background: var(--surface); color: var(--ink-2); font-weight: 600; min-height: 2.5rem; display: inline-flex; align-items: center; }
+.people-tabs a:hover { text-decoration: none; background: var(--sunken); }
+.people-tabs a[aria-current="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.owner-tag { display: inline-block; font-size: .75rem; font-weight: 650; padding: .05rem .5rem; border-radius: 3px; background: var(--primary-soft); color: var(--primary-strong); }
+
+.owner-filter { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.owner-filter .chip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+
 /* ───────────── Avisos ───────────── */
 .toasts { position: fixed; top: 1rem; right: 1rem; z-index: 50; display: grid; gap: .5rem; width: min(26rem, calc(100vw - 2rem)); }
 .toast { padding: .75rem 1rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); border-left-width: 4px; box-shadow: 0 6px 18px rgba(28,38,34,.14); display: flex; justify-content: space-between; gap: 1rem; }

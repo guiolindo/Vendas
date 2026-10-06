@@ -39,7 +39,8 @@ def _date(raw):
 @bp.get("/vendas/nova")
 def new():
     import datetime
-    return render_template("sales/new.html", token=uuid.uuid4().hex,
+    from ..services import owners as owner_svc
+    return render_template("sales/new.html", token=uuid.uuid4().hex, owners=owner_svc.list_owners(db(), only_active=True),
                            default_due=(clock.today() + datetime.timedelta(days=current_app.config["DEFAULT_DUE_DAYS"])).isoformat())
 
 

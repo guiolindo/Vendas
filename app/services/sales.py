@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import clock
@@ -60,7 +61,22 @@ def compute_totals(subtotal: int, discount_cents: int = 0, discount_percent: Dec
 
 
 def create_sale(session: Session, data: SaleInput, user_id: int | None = None) -> Sale:
-    """Registra venda + itens + baixa de estoque + pagamento inicial, tudo ou nada."""
+    """Registra venda + itens + baixa de estoque + pagamento inicial, tudo ou nada.
+
+    Se duas requisições com o mesmo token chegam juntas (duplo clique), uma grava e a outra
+    recebe de volta a venda já gravada, em vez de um erro."""
+    try:
+        return _create_sale(session, data, user_id)
+    except IntegrityError:
+        session.rollback()
+        if data.client_token:
+            existing = session.scalar(select(Sale).where(Sale.client_token == data.client_token))
+            if existing:
+                return existing
+        raise
+
+
+def _create_sale(session: Session, data: SaleInput, user_id: int | None = None) -> Sale:
     today = clock.today()
     with atomic(session):
         if data.client_token:
@@ -142,7 +158,7 @@ def create_sale(session: Session, data: SaleInput, user_id: int | None = None) -
         )
         for product, qty, price in lines:
             sale.items.append(SaleItem(
-                product_id=product.id, product_name=product.name, product_code=product.code,
+                product_id=product.id, owner_id=product.owner_id, product_name=product.name, product_code=product.code,
                 unit=product.unit, quantity=qty, unit_price_cents=price,
                 unit_cost_cents=product.cost_cents, total_cents=qty * price,
             ))

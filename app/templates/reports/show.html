@@ -13,6 +13,9 @@
     {% if 'customer' in r.filters %}
     <div class="field"><label for="cliente">Cliente</label><select id="cliente" name="cliente"><option value="">Todos</option>
       {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if params.customer_id == c.id }}>{{ c.name }}</option>{% endfor %}</select></div>{% endif %}
+    {% if 'owner' in r.filters and owners %}
+    <div class="field"><label for="pessoa">Pessoa</label><select id="pessoa" name="pessoa"><option value="">Todas</option>
+      {% for o in owners %}<option value="{{ o.id }}" {{ 'selected' if params.owner_id == o.id }}>{{ o.name }}</option>{% endfor %}</select></div>{% endif %}
     {% if 'status' in r.filters %}
     <div class="field"><label for="situacao">Situação</label><select id="situacao" name="situacao"><option value="">Todas (sem canceladas)</option>
       {% for k in ['pago','parcial','pendente','vencido','cancelada'] %}<option value="{{ k }}" {{ 'selected' if params.status == k }}>{{ k|status_label }}</option>{% endfor %}</select></div>{% endif %}

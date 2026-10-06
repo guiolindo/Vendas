@@ -6,7 +6,7 @@
   var csrf = document.querySelector("meta[name=csrf-token]").content;
   var DRAFT = "vendas:rascunho";
 
-  var state = { cart: [], customer: null, mode: "full", results: [], active: 0 };
+  var state = { cart: [], customer: null, mode: "full", results: [], active: 0, owner: "" };
 
   // ── utilidades
   function debounce(fn, ms) { var t; return function () { var a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, ms); }; }
@@ -38,7 +38,7 @@
 
   // ── produtos
   var loadProducts = debounce(function () {
-    getJSON(pos.dataset.apiProducts + "?q=" + encodeURIComponent($("product-search").value)).then(function (list) {
+    getJSON(pos.dataset.apiProducts + "?q=" + encodeURIComponent($("product-search").value) + "&owner=" + encodeURIComponent(state.owner)).then(function (list) {
       state.results = list; state.active = 0; renderResults();
     });
   }, 120);
@@ -54,7 +54,7 @@
       var cls = p.stock <= 0 ? "out" : (p.stock <= 3 ? "low" : "");
       return '<button type="button" class="result' + (idx === state.active ? " active" : "") + '" role="option" data-idx="' + idx + '">' +
         '<span class="r-name">' + esc(p.name) + '</span><span class="r-price">' + Money.format(p.price_cents) + "</span>" +
-        '<span class="r-meta">' + esc(p.code) + (p.sku ? " · " + esc(p.sku) : "") + '</span><span class="r-stock ' + cls + '">' +
+        '<span class="r-meta">' + (p.owner ? '<span class="owner-tag">' + esc(p.owner) + "</span> " : "") + esc(p.code) + (p.sku ? " · " + esc(p.sku) : "") + '</span><span class="r-stock ' + cls + '">' +
         (p.stock <= 0 ? "Sem estoque" : p.stock + " " + esc(p.unit) + " em estoque") + "</span></button>";
     }).join("");
     $("product-search").setAttribute("aria-expanded", "true");
@@ -274,6 +274,14 @@
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finish(); }
     var tag = (e.target.tagName || "").toLowerCase();
     if (e.key === "/" && tag !== "input" && tag !== "textarea" && tag !== "select") { e.preventDefault(); $("product-search").focus(); }
+  });
+
+  document.querySelectorAll(".owner-filter [data-owner]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.owner = b.dataset.owner;
+      document.querySelectorAll(".owner-filter [data-owner]").forEach(function (x) { x.setAttribute("aria-pressed", x === b); });
+      loadProducts(); $("product-search").focus();
+    });
   });
 
   // ── início
