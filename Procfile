@@ -1,1 +1,1 @@
-web: gunicorn run:app --workers 2 --threads 4 --timeout 60 --bind 0.0.0.0:${PORT:-8000}
+web: alembic upgrade head && gunicorn run:app --workers 2 --threads 4 --timeout 60 --bind 0.0.0.0:${PORT:-8000}

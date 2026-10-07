@@ -2,7 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "deploy": {
     "preDeployCommand": "/bin/sh -c 'alembic upgrade head'",
-    "startCommand": "/bin/sh -c 'gunicorn run:app --workers 2 --threads 4 --timeout 60 --graceful-timeout 30 --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile - --access-logformat \"%(h)s %(m)s %(U)s %(s)s %(b)s %(M)sms\" --bind 0.0.0.0:${PORT:-8000}'",
+    "startCommand": "/bin/sh -c 'alembic upgrade head && gunicorn run:app --workers 2 --threads 4 --timeout 60 --graceful-timeout 30 --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile - --access-logformat \"%(h)s %(m)s %(U)s %(s)s %(b)s %(M)sms\" --bind 0.0.0.0:${PORT:-8000}'",
     "healthcheckPath": "/saude",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
