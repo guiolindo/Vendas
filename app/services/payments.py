@@ -149,15 +149,15 @@ def _register_customer_payment(session: Session, customer_id: int, amount_cents:
 
 def void_payment(session: Session, payment_id: int, reason: str | None = None,
                  user_id: int | None = None) -> Payment:
-    """Estorna um pagamento lançado por engano. O registro continua no histórico."""
+    """Desfaz um pagamento lançado por engano. O registro continua no histórico, marcado como desfeito."""
     with atomic(session):
         payment = session.get(Payment, payment_id, with_for_update=True)
         if payment is None:
             raise NotFound("Pagamento não encontrado.")
         if payment.voided:
-            raise BusinessError("Este pagamento já foi estornado.")
+            raise BusinessError("Este pagamento já foi desfeito.")
         if payment.sale.cancelled:
-            raise BusinessError("A venda foi cancelada; seus pagamentos já estão estornados.")
+            raise BusinessError("A venda foi cancelada, então os pagamentos já foram desfeitos.")
         payment.voided_at = clock.now()
         payment.void_reason = (reason or "").strip()[:255] or "Lançado por engano"
         session.flush()

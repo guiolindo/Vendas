@@ -127,7 +127,7 @@ def test_voided_payment_has_no_receipt(client, shop, db):
     p = db.get(sale_svc.Sale, sid).payments[0]
     pay.void_payment(db, p.id)
     r = client.get(f"/pagamentos/{p.id}/recibo", follow_redirects=True)
-    assert "foi estornado" in r.get_data(as_text=True)
+    assert "foi desfeito" in r.get_data(as_text=True)
 
 
 def test_receipt_links_and_unknown_ids(client, shop):

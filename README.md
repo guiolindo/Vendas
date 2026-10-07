@@ -62,6 +62,15 @@ As tabelas são criadas automaticamente na primeira subida (com lock, então vá
 
 **Limite conhecido do custo:** cada produto tem um custo atual (não há custo por lote, como PEPS ou custo médio). O valor do estoque ("estoque ao custo atual") usa o custo atual para todas as unidades; por isso o rótulo diz "atual".
 
+## Texto e uso para qualquer pessoa
+
+- **Linguagem do dia a dia**: nada de "estorno", "auditoria" ou "sessão". Pagamento lançado errado é **desfeito**; a mensagem de erro diz o que fazer ("A página ficou aberta por muito tempo. Atualize a página e tente de novo"), e o texto da tela de venda guarda os itens enquanto isso.
+- **Sem assumir gênero**: o sistema não sabe quem são as pessoas. Frases usam o nome ou construções neutras ("Pessoa cadastrada: Nome", "o que pertence a Nome"), nunca "dela", "cadastrada" depois de um nome etc.
+- **Sem frases genéricas**: não há "bem-vindo", "insights", emojis nem texto de marketing. Um teste (`tests/test_ux.py`) varre todo o texto da interface e das mensagens procurando jargão, tom de marketing e gênero assumido, para isso não voltar.
+- **Primeiro uso**: um passo a passo no início ("Para começar") mostra o próximo passo em destaque e some sozinho depois da primeira venda. O primeiro acesso já pergunta o nome do negócio e das duas pessoas.
+- **Legibilidade**: texto-base de 16 px; **todo texto tem contraste mínimo de 4,5:1** (padrão WCAG AA), medido direto nas cores do CSS por teste. Alvos de toque de 44 px no celular, atalho "Pular para o conteúdo" para teclado, campos sempre com rótulo e botões de ícone com nome.
+- Um mesmo conceito tem um só nome: **"Falta pagar"** na venda e no recibo, **"A receber"** no painel (visto de quem vende).
+
 ## Segurança
 
 Baseada na auditoria e nos pentests do projeto [Notas-despesas](https://github.com/guiolindo/Notas-despesas). O sistema **não abre nada sem login**.

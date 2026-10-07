@@ -158,3 +158,16 @@ def test_chart_colors_exist_in_css_and_follow_the_person():
     css = open("app/static/css/app.css").read()
     for var in ("--c1: #008f99", "--c2: #cf5a2a", "--c-sold", "--c-recv", "--age1", "--age3"):
         assert var in css, var
+
+
+def test_person_colors_and_order_follow_registration_not_the_alphabet(session):
+    """Quem foi cadastrado primeiro é sempre a primeira cor, mesmo que o nome venha depois no alfabeto."""
+    from app.web import charts_svg as svg
+    zeca, ana = own.create_owner(session, "Zeca"), own.create_owner(session, "Ana")
+    assert [o.name for o in own.list_owners(session)] == ["Zeca", "Ana"]
+    data = charts.build(session, TODAY, None, "mes")
+    assert svg.owner_color(data, zeca.id) == "var(--c1)" and svg.owner_color(data, ana.id) == "var(--c2)"
+    third = own.create_owner(session, "Aline")                                   # entra alguém que viria antes de todos no alfabeto
+    data = charts.build(session, TODAY, None, "mes")
+    assert svg.owner_color(data, zeca.id) == "var(--c1)" and svg.owner_color(data, ana.id) == "var(--c2)"   # ninguém trocou de cor
+    assert svg.owner_color(data, third.id) == "var(--c-other)"                    # a terceira pessoa vai para "outros", sem inventar cor

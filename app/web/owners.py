@@ -20,7 +20,7 @@ def index():
 def create():
     owner = svc.create_owner(db(), request.form.get("name", ""))
     audit_event("pessoa_criada", owner.name)
-    flash(f"{owner.name} cadastrada.", "success")
+    flash(f"Pessoa cadastrada: {owner.name}.", "success")
     return redirect(url_for("owners.index"))
 
 
@@ -37,7 +37,7 @@ def rename(owner_id: int):
 def delete(owner_id: int):
     name = svc.delete_owner(db(), owner_id)
     audit_event("pessoa_excluida", name)
-    flash(f"{name} excluída.", "success")
+    flash(f"Pessoa excluída: {name}.", "success")
     return redirect(url_for("owners.index"))
 
 

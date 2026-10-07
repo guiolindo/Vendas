@@ -102,7 +102,7 @@ def test_fix_cancels_and_opens_pos_prefilled(client, db, shop):
     assert db.get(Sale, sid).cancelled and db.get(Sale, sid).cancel_reason.startswith("Corrigida")
     assert db.get(Product, p.id).stock_qty == 10                                   # o estoque voltou
     page = client.get(r.headers["Location"], follow_redirects=True).get_data(as_text=True)
-    assert "Refazendo a venda" in page and "cancelada para correção" in page and "estornados" in page
+    assert "Refazendo a venda" in page and "cancelada para correção" in page and "desfeitos" in page
     data = json.loads(re.search(r"data-prefill='([^']*)'", page).group(1).replace("&#34;", '"').replace("&#39;", "'"))
     by = {i["name"]: i for i in data["items"]}
     assert by["Vestido"]["qty"] == 2 and by["Vestido"]["price"] == 9000           # o preço combinado (90) foi mantido
@@ -194,6 +194,6 @@ def test_owner_delete_route(client, db):
     oid = db.scalar(select(Owner.id))
     assert "Excluir" in client.get("/pessoas").get_data(as_text=True)
     r = post(client, f"/pessoas/{oid}/excluir", follow_redirects=True)
-    assert "Provisória excluída" in r.get_data(as_text=True)
+    assert "Pessoa excluída: Provisória" in r.get_data(as_text=True)
     db.rollback()
     assert db.scalar(select(func.count()).select_from(Owner)) == 0

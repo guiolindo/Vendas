@@ -114,7 +114,7 @@ def test_void_payment_restores_balance_and_keeps_record(session, open_sale):
     assert (open_sale.paid_cents, open_sale.status) == (0, "pendente")
     assert len(open_sale.payments) == 1 and open_sale.payments[0].voided
     assert open_sale.payments[0].void_reason == "digitei errado"
-    with pytest.raises(BusinessError, match="já foi estornado"):
+    with pytest.raises(BusinessError, match="já foi desfeito"):
         pay.void_payment(session, payment.id)
     pay_(session, open_sale, 10000)  # saldo voltou a ser o total
     assert open_sale.status == "pago"

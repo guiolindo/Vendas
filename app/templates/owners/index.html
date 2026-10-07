@@ -10,7 +10,7 @@
         <td><form method="post" action="{{ url_for('owners.rename', owner_id=o.id) }}" class="pay-form" style="grid-template-columns: minmax(0,1fr) auto">{{ csrf() }}
           <input name="name" value="{{ o.name }}" maxlength="80" required aria-label="Nome" style="min-height:2.25rem">
           <button class="btn small" type="submit">Salvar nome</button></form>
-          {% if not o.active %}<span class="badge inativo">Inativa</span>{% endif %}</td>
+          {% if not o.active %}<span class="badge inativo">Sem novos produtos</span>{% endif %}</td>
         <td class="right num"><a href="{{ url_for('products.index', dono=o.id) }}">{{ counts.get(o.id, 0) }}</a></td>
         <td class="right"><form method="post" action="{{ url_for('owners.toggle', owner_id=o.id) }}" class="inline-form">{{ csrf() }}
           <input type="hidden" name="active" value="{{ '0' if o.active else '1' }}"><button class="link-button" type="submit">{{ 'Desativar' if o.active else 'Reativar' }}</button></form>
@@ -22,7 +22,7 @@
     <form method="post" action="{{ url_for('owners.create') }}">{{ csrf() }}
       <div class="field"><label for="name">Nome</label><input id="name" name="name" maxlength="80" required></div>
       <button class="btn primary" type="submit">Adicionar</button>
-      <p class="help" style="margin-top:.75rem">Desativar uma pessoa não apaga nada: ela só deixa de receber produtos novos. Trocar o dono de um produto vale só para as vendas futuras.</p>
+      <p class="help" style="margin-top:.75rem">Desativar não apaga nada: a pessoa só deixa de receber produtos novos. Trocar o dono de um produto vale só para as próximas vendas.</p>
     </form></div></section>
 </div>
 {% endblock %}

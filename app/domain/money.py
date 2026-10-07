@@ -40,7 +40,7 @@ def parse_money(text: object) -> int:
         raise MoneyError("Use no máximo duas casas decimais (centavos).")
     cents = int((value * 100).to_integral_value(ROUND_HALF_UP))
     if cents > MAX_CENTS:
-        raise MoneyError("Valor muito alto.")
+        raise MoneyError(f"o valor passa do limite de {format_brl(MAX_CENTS)}.")
     return cents
 
 

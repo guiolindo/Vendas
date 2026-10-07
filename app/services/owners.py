@@ -74,15 +74,17 @@ def delete_owner(session: Session, owner_id: int) -> str:
         products = session.scalar(select(func.count()).select_from(Product).where(Product.owner_id == owner_id))
         sold = session.scalar(select(func.count()).select_from(SaleItem).where(SaleItem.owner_id == owner_id))
         if products or sold:
-            raise BusinessError(f"{owner.name} tem {products} produto(s) e {sold} item(ns) vendido(s) no histórico, então não pode ser "
-                                "excluída. Desative para que ela deixe de receber produtos novos.")
+            raise BusinessError(f"{owner.name} tem {products} produto(s) e {sold} item(ns) vendido(s) no histórico, então esta pessoa não pode ser "
+                                "excluída. Desative para que deixe de receber produtos novos.")
         name = owner.name
         session.delete(owner)
     return name
 
 
 def list_owners(session: Session, only_active: bool = False) -> list[Owner]:
-    query = select(Owner).order_by(Owner.name)
+    """Na ordem em que foram cadastradas. A ordem é estável de propósito: a cor de cada pessoa nos gráficos
+    e a ordem dos botões do painel não podem mudar só porque entrou alguém com nome que vem antes no alfabeto."""
+    query = select(Owner).order_by(Owner.id)
     if only_active:
         query = query.where(Owner.active.is_(True))
     return list(session.scalars(query))

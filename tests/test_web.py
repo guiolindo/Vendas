@@ -144,7 +144,7 @@ def test_full_sale_and_payment_flow(client, db, catalog):
     assert sale.status == "pago" and [x.amount_cents for x in sale.payments] == [20000, 15000, 15000]
 
     r = post(client, f"/pagamentos/{sale.payments[1].id}/estornar", {"reason": "engano"}, follow_redirects=True)
-    assert "estornado" in r.get_data(as_text=True)
+    assert "desfeito" in r.get_data(as_text=True)
     db.rollback()
     assert db.get(Sale, sale_id).status == "parcial"
 

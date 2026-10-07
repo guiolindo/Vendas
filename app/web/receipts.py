@@ -56,7 +56,7 @@ def payment(payment_id: int):
         flash("Pagamento não encontrado.", "error")
         return redirect(url_for("sales.index"))
     if p.voided:
-        flash("Este pagamento foi estornado e não tem recibo.", "error")
+        flash("Este pagamento foi desfeito e não tem recibo.", "error")
         return redirect(url_for("sales.detail", sale_id=p.sale_id))
     sale = p.sale
     valid = sorted((x for x in sale.payments if not x.voided), key=lambda x: (x.paid_at, x.id))

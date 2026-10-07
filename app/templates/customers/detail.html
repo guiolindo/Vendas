@@ -47,7 +47,7 @@
           {{ csrf() }}{{ once() }}
           <div class="field"><label for="amount">Valor recebido</label>
             <div class="money-input"><input id="amount" name="amount" inputmode="decimal" autocomplete="off" required placeholder="0,00" data-max="{{ s.pending }}"></div>
-            <p class="help">Ele paga primeiro o que venceu antes. <button type="button" class="link-button" data-fill="{{ s.pending|brl_plain }}">Receber tudo ({{ s.pending|brl }})</button></p></div>
+            <p class="help">O valor abate primeiro a venda mais antiga. <button type="button" class="link-button" data-fill="{{ s.pending|brl_plain }}">Receber tudo ({{ s.pending|brl }})</button></p></div>
           <div class="grid">
             <div class="field"><label for="method">Forma</label><select id="method" name="method">{% for k, l in methods.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
             <div class="field"><label for="paid_at">Data</label><input id="paid_at" type="date" name="paid_at" value="{{ today|iso }}" max="{{ today|iso }}"></div>

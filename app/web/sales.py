@@ -155,7 +155,7 @@ def fix(sale_id: int):
     svc.cancel_sale(db(), sale_id, "Corrigida: refeita com os dados certos", current_user_id())
     audit_event("venda_corrigida", f"#{sale_id}")
     flash(f"Venda #{sale_id} cancelada para correção. Confira os itens abaixo e finalize de novo; "
-          "os pagamentos dela foram estornados e precisam ser lançados outra vez.", "info")
+          "os pagamentos foram desfeitos e precisam ser lançados outra vez.", "info")
     return redirect(url_for("sales.new", refazer=sale_id))
 
 
@@ -164,5 +164,5 @@ def fix(sale_id: int):
 def void_payment(payment_id: int):
     payment = payments.void_payment(db(), payment_id, request.form.get("reason"), current_user_id())
     audit_event("pagamento_estornado", f"#{payment_id} venda #{payment.sale_id}")
-    flash(f"Pagamento de {format_brl(payment.amount_cents)} estornado. O registro continua no histórico.", "success")
+    flash(f"Pagamento de {format_brl(payment.amount_cents)} desfeito. O valor volta a ficar em aberto e o registro continua no histórico.", "success")
     return redirect(url_for("sales.detail", sale_id=payment.sale_id))

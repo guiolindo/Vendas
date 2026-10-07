@@ -24,7 +24,7 @@ def two(db):
 def test_people_page_and_management(client, db):
     assert client.get("/pessoas").status_code == 200
     r = post(client, "/pessoas/nova", {"name": "Ana"}, follow_redirects=True)
-    assert "Ana cadastrada." in r.get_data(as_text=True)
+    assert "Pessoa cadastrada: Ana." in r.get_data(as_text=True)
     r = post(client, "/pessoas/nova", {"name": "ana"}, follow_redirects=True)
     assert "Já existe uma pessoa" in r.get_data(as_text=True)
     db.rollback()
@@ -42,7 +42,7 @@ def test_dashboard_general_and_each_person(client, db, two):
     geral = client.get("/?pessoa=geral").get_data(as_text=True)
     assert "Por pessoa" in geral and ">Ana<" in geral and ">Bia<" in geral and "R$ 200,00" in geral
     pana = client.get(f"/?pessoa={ana.id}").get_data(as_text=True)
-    assert "Painel de Ana" in pana and "só a parte de Ana" in pana and "Por pessoa" not in pana and "R$ 100,00" in pana
+    assert "Painel de Ana" in pana and "só o que pertence a Ana" in pana and "Por pessoa" not in pana and "R$ 100,00" in pana
     assert "Painel de Bia" in client.get(f"/?pessoa={bia.id}").get_data(as_text=True)
     # a escolha fica lembrada ao voltar ao início sem parâmetro
     assert "Painel de Bia" in client.get("/").get_data(as_text=True)

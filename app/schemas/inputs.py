@@ -54,14 +54,14 @@ def sale_from_json(payload: dict) -> SaleInput:
         raise BusinessError("A venda pode ter no máximo 200 itens.", field="items")
     for raw in raw_items:
         if not isinstance(raw, dict):
-            raise BusinessError("Há um item inválido na venda.", field="items")
+            raise BusinessError("Um dos itens da venda está com dados inválidos. Remova-o e adicione de novo.", field="items")
         try:
             quantity = int(raw.get("quantity"))
             product_id = int(raw.get("product_id"))
             if isinstance(raw.get("quantity"), bool) or not 0 < product_id <= MAX_ID or abs(quantity) > 10**9:
                 raise ValueError
         except (TypeError, ValueError):
-            raise BusinessError("Há um item com quantidade inválida.", field="items") from None
+            raise BusinessError("Confira a quantidade dos itens: use números inteiros, de 1 para cima.", field="items") from None
         price = raw.get("price")
         items.append(ItemInput(product_id, quantity, None if price in (None, "") else _money(price, "Preço", "items")))
 

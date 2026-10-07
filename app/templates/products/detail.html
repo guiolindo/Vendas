@@ -38,7 +38,7 @@
     <section class="panel">
       <header><h2>Movimentação do estoque</h2>{% if invested %}<span class="small muted">Já gasto em compras: {{ invested|brl }}</span>{% endif %}</header>
       {% if movements %}<div class="table-wrap"><table class="cards">
-        <thead><tr><th>Data</th><th>Tipo</th><th class="right">Qtd.</th><th class="right">Custo un.</th><th class="right">Saldo</th><th class="no-print"></th></tr></thead>
+        <thead><tr><th>Data</th><th>Tipo</th><th class="right">Qtd.</th><th class="right">Custo (un.)</th><th class="right">Ficou</th><th class="no-print"></th></tr></thead>
         <tbody>{% for m in movements %}<tr class="{{ 'void' if m.voided else '' }}"><td>{{ m.created_at|hora }}</td>
           <td>{{ m.kind|movement_label }}{% if m.voided %} <span class="badge cancelada">Excluída</span>{% endif %}{% if m.sale_id %} · <a href="{{ url_for('sales.detail', sale_id=m.sale_id) }}">#{{ m.sale_id }}</a>{% endif %}{% if m.note %}<span class="sub">{{ m.note }}</span>{% endif %}{% if m.voided and m.void_reason %}<span class="sub">{{ m.void_reason }}</span>{% endif %}</td>
           <td class="right num {{ 'in-money' if m.quantity > 0 and not m.voided else '' }}">{{ '+' if m.quantity > 0 }}{{ m.quantity }}</td>
@@ -68,7 +68,7 @@
         <tbody>{% for c in cost_history %}<tr><td>{{ c.at|hora }}</td><td class="right money muted">{{ c.old_cents|brl if c.old_cents else '—' }}</td>
           <td class="right money">{{ c.new_cents|brl }}</td><td>{{ c.origin|capitalize }}</td></tr>{% endfor %}</tbody></table></div>
       {% else %}<div class="empty">Nenhuma mudança de custo registrada.</div>{% endif %}
-      <p class="small muted" style="padding:.75rem 1rem">Mudar o custo vale só para as próximas vendas. As vendas já feitas guardam o custo da época, então o lucro delas não muda.</p>
+      <p class="small muted" style="padding:.75rem 1rem">Mudar o custo vale só para as próximas vendas. As vendas já feitas guardam o custo da época, então o lucro das vendas antigas não muda.</p>
     </section>
     <section class="panel">
       <header><h2>Ativar ou excluir</h2></header>

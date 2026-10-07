@@ -202,8 +202,12 @@
     fetch("/vendas/nova", {
       method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify(payload)
-    }).then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+    }).then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }, function () { return { status: r.status, body: null }; }); })
       .then(function (res) {
+        if (!res.body) {  // resposta que não é do sistema de vendas: página velha demais ou sessão encerrada
+          showError(res.status === 400 || res.status === 401 ? "A página ficou aberta por muito tempo. Atualize a página e tente de novo: os itens da venda ficam guardados." : "Não foi possível registrar a venda. Tente de novo.");
+          renderTotals(); return;
+        }
         if (res.body.ok) { try { sessionStorage.removeItem(DRAFT); } catch (e) {} window.location = res.body.redirect; return; }
         showError(res.body.message || "Não foi possível registrar a venda."); renderTotals();
         var f = { customer: "customer-search", due_date: "due", paid: "paid", discount: "discount" }[res.body.field]; if (f) $(f).focus();

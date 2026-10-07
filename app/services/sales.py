@@ -218,7 +218,7 @@ def delete_sale(session: Session, sale_id: int) -> str:
             raise NotFound("Venda não encontrada.")
         if not sale.cancelled:
             raise BusinessError("Só dá para excluir uma venda que já foi cancelada. Cancele primeiro: assim o estoque volta e "
-                                "os pagamentos são estornados de forma registrada.")
+                                "os pagamentos são desfeitos de forma registrada.")
         summary = (f"#{sale.id} total={sale.total_cents} itens={len(sale.items)} pagamentos={len(sale.payments)} "
                    f"cliente={sale.customer.name if sale.customer else 'consumidor'} motivo={sale.cancel_reason}")[:255]
         for movement in session.scalars(select(StockMovement).where(StockMovement.sale_id == sale_id)):

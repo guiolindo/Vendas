@@ -12,7 +12,7 @@
   </div></div>
 
 {% if sale.cancelled %}
-<div class="alert-box">Venda cancelada em {{ sale.cancelled_at|hora }}. Motivo: {{ sale.cancel_reason }}. O estoque foi devolvido e os pagamentos foram estornados (continuam no histórico abaixo).</div>
+<div class="alert-box">Venda cancelada em {{ sale.cancelled_at|hora }}. Motivo: {{ sale.cancel_reason }}. O estoque foi devolvido e os pagamentos foram desfeitos (continuam no histórico abaixo).</div>
 {% endif %}
 
 <section class="ledger compact">
@@ -56,12 +56,12 @@
         <tbody>{% for p in sale.payments %}<tr class="{{ 'void' if p.voided else '' }}">
           <td>{{ p.paid_at|data }}</td><td class="right money {{ '' if p.voided else 'in-money' }}">{{ p.amount_cents|brl }}</td>
           <td>{{ p.method|method_label }}</td>
-          <td>{% if p.voided %}<span class="badge cancelada">Estornado</span> <span style="text-decoration:none">{{ p.void_reason }}</span>{% else %}{{ p.note or '—' }}{% endif %}</td>
+          <td>{% if p.voided %}<span class="badge cancelada">Desfeito</span> <span style="text-decoration:none">{{ p.void_reason }}</span>{% else %}{{ p.note or '—' }}{% endif %}</td>
           <td class="right no-print">{% if not p.voided %}<a class="small" href="{{ url_for('receipts.payment', payment_id=p.id) }}" target="_blank" rel="noopener">Recibo</a> {% endif %}{% if not p.voided and not sale.cancelled %}
-            <details class="inline-pay"><summary class="link-button danger small">Estornar</summary>
-              <form method="post" action="{{ url_for('sales.void_payment', payment_id=p.id) }}" class="pay-form" style="margin-top:.5rem" data-confirm="Estornar o pagamento de {{ p.amount_cents|brl }}?">{{ csrf() }}
+            <details class="inline-pay"><summary class="link-button danger small">Desfazer</summary>
+              <form method="post" action="{{ url_for('sales.void_payment', payment_id=p.id) }}" class="pay-form" style="margin-top:.5rem" data-confirm="Desfazer o pagamento de {{ p.amount_cents|brl }}? A venda volta a ficar devendo esse valor.">{{ csrf() }}
                 <div class="field"><label>Motivo <span class="hint">(opcional)</span></label><input name="reason" maxlength="255" placeholder="Lançado por engano"></div>
-                <button class="btn danger small" type="submit">Estornar</button></form></details>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+                <button class="btn danger small" type="submit">Desfazer pagamento</button></form></details>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
       {% else %}<div class="empty">Nenhum pagamento registrado nesta venda.</div>{% endif %}
     </section>
     {% if sale.notes %}<section class="panel"><header><h2>Observações</h2></header><div class="body">{{ sale.notes }}</div></section>{% endif %}
@@ -94,7 +94,7 @@
         <p class="small muted" style="margin-bottom:.75rem">Cancelada, ela não conta em nenhum painel nem relatório. Se foi por engano ou precisa de ajuste, refaça; se foi só um lançamento errado, exclua.</p>
         <div class="actions">
           <a class="btn primary" href="{{ url_for('sales.new', refazer=sale.id) }}">Refazer esta venda</a>
-          <form method="post" action="{{ url_for('sales.delete', sale_id=sale.id) }}" class="inline-form" data-confirm="Excluir DEFINITIVAMENTE a venda #{{ sale.id }}? Ela some da lista e não dá para desfazer. Fica só um registro na auditoria.">{{ csrf() }}
+          <form method="post" action="{{ url_for('sales.delete', sale_id=sale.id) }}" class="inline-form" data-confirm="Excluir DEFINITIVAMENTE a venda #{{ sale.id }}? Ela some da lista e não dá para desfazer. Fica só um registro interno do que foi excluído.">{{ csrf() }}
             <button class="btn danger" type="submit">{{ icon('trash') }} Excluir definitivamente</button></form>
         </div>
       </div>
@@ -104,8 +104,8 @@
     <section class="panel">
       <header><h2>Corrigir itens ou valores</h2></header>
       <div class="body">
-        <form method="post" action="{{ url_for('sales.fix', sale_id=sale.id) }}" data-confirm="Cancelar a venda #{{ sale.id }} e abrir uma nova já preenchida? O estoque volta{% if sale.paid_cents %} e os {{ sale.paid_cents|brl }} pagos são estornados (você lança de novo){% endif %}.">{{ csrf() }}
-          <p class="help" style="margin-bottom:.75rem">Produto, quantidade ou preço errado? Cancela esta venda e abre a tela de venda já com tudo preenchido, para você só ajustar.{% if sale.paid_cents %} Os pagamentos serão estornados e precisam ser lançados de novo.{% endif %}</p>
+        <form method="post" action="{{ url_for('sales.fix', sale_id=sale.id) }}" data-confirm="Cancelar a venda #{{ sale.id }} e abrir uma nova já preenchida? O estoque volta{% if sale.paid_cents %} e os {{ sale.paid_cents|brl }} pagos são desfeitos (você lança de novo){% endif %}.">{{ csrf() }}
+          <p class="help" style="margin-bottom:.75rem">Produto, quantidade ou preço errado? Cancela esta venda e abre a tela de venda já com tudo preenchido, para você só ajustar.{% if sale.paid_cents %} Os pagamentos serão desfeitos e precisam ser lançados de novo.{% endif %}</p>
           <button class="btn" type="submit">Corrigir e refazer</button></form>
       </div>
     </section>
@@ -113,9 +113,9 @@
       <header><h2>Cancelar venda</h2></header>
       <div class="body">
         <details class="more"><summary>Cancelar esta venda</summary><div class="inner">
-          <form method="post" action="{{ url_for('sales.cancel', sale_id=sale.id) }}" data-confirm="Cancelar a venda #{{ sale.id }}? Isso devolve os produtos ao estoque{% if sale.paid_cents %} e estorna {{ sale.paid_cents|brl }} já pagos{% endif %}.">{{ csrf() }}
+          <form method="post" action="{{ url_for('sales.cancel', sale_id=sale.id) }}" data-confirm="Cancelar a venda #{{ sale.id }}? Isso devolve os produtos ao estoque{% if sale.paid_cents %} e desfaz {{ sale.paid_cents|brl }} já pagos{% endif %}.">{{ csrf() }}
             <div class="field"><label for="reason">Motivo</label><input id="reason" name="reason" required maxlength="255" placeholder="Ex.: cliente desistiu"></div>
-            <p class="help" style="margin-bottom:.75rem">Os produtos voltam ao estoque{% if sale.paid_cents %} e o que foi pago ({{ sale.paid_cents|brl }}) é marcado como estornado{% endif %}. Para mudar itens ou valores, cancele e registre de novo.</p>
+            <p class="help" style="margin-bottom:.75rem">Os produtos voltam ao estoque{% if sale.paid_cents %} e o que foi pago ({{ sale.paid_cents|brl }}) é marcado como desfeito{% endif %}. Para mudar itens ou valores, cancele e registre de novo.</p>
             <button class="btn danger solid" type="submit">Cancelar venda</button></form></div></details>
       </div>
     </section>

@@ -23,8 +23,8 @@ def init_app(app) -> None:
             expected = session.get("csrf") or ""
             if not expected or not hmac.compare_digest(sent.encode(), expected.encode()):
                 if request.is_json or request.path.startswith("/api/") or request.path.startswith("/vendas/nova"):
-                    abort(400, "Sessão expirada. Recarregue a página.")
-                flash("Sua sessão expirou. Tente novamente.", "error")
+                    abort(400, "A página ficou aberta por muito tempo. Atualize a página e tente de novo.")
+                flash("A página ficou aberta por muito tempo. Atualize a página e tente de novo.", "error")
                 return redirect(request.referrer or url_for("auth.login"))
         endpoint = request.endpoint
         if endpoint is None or endpoint in PUBLIC:
@@ -114,9 +114,13 @@ def setup():
                                 owner_svc.create_owner(db(), person)
                             except Exception:
                                 db().rollback()
+                    business = request.form.get("business_name", "").strip()
+                    if business and len(business) <= 80:
+                        from ..services import settings as settings_svc
+                        settings_svc.save(db(), {"business_name": business}, show_seller=True)
                     _start_session(user)
                     sec.audit(db(), "setup", user.id, None, ip)
-                    flash(f"Tudo pronto, {name.split()[0]}. Comece cadastrando seus produtos.", "success")
+                    flash(f"Tudo certo, {name.split()[0]}. Siga o passo a passo abaixo para começar.", "success")
                     return redirect(url_for("dashboard.index"))
         except Exception as e:  # BusinessError da política de senha
             if hasattr(e, "message"):

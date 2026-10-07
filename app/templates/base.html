@@ -15,6 +15,7 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body class="{% block bodyclass %}{% endblock %}">
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
 {% set ep = request.endpoint or '' %}
 <div class="shell">
   <aside class="side" id="side">

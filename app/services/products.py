@@ -9,7 +9,7 @@ from ..db import atomic
 from ..domain.text import limited
 from ..errors import BusinessError, NotFound
 from ..models import Category, Product, SaleItem, StockMovement
-from ..domain.money import MAX_CENTS
+from ..domain.money import MAX_CENTS, format_brl
 from . import costs
 from .stock import MAX_QTY, apply_movement
 
@@ -48,7 +48,7 @@ def _validate(data: ProductInput) -> None:
     limited(data.category_name, 80, "Categoria", "category"); limited(data.unit, 10, "Unidade", "unit")
     limited(data.description, 2000, "Descrição", "description")
     if data.price_cents > MAX_CENTS or data.cost_cents > MAX_CENTS:
-        raise BusinessError("Valor muito alto.", field="price")
+        raise BusinessError(f"O preço ou o custo passa do limite de {format_brl(MAX_CENTS)}.", field="price")
     if not 0 <= data.initial_stock <= MAX_QTY:
         raise BusinessError("O estoque inicial precisa ser zero ou mais.", field="initial_stock")
 
