@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text
+from sqlalchemy import CheckConstraint, ForeignKey, String, Text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .. import clock
@@ -44,6 +44,8 @@ class Product(Base):
     # Saldo em cache. Só muda por `services.stock.apply_movement`, que também grava
     # a movimentação correspondente (soma das movimentações == stock_qty).
     stock_qty: Mapped[int] = mapped_column(default=0)
+    # False = produto sem controle de quantidade: vende sem baixar nem exigir estoque.
+    track_stock: Mapped[bool] = mapped_column(default=True, server_default=true())
     min_stock: Mapped[int] = mapped_column(default=0)
     unit: Mapped[str] = mapped_column(String(10), default="un")
     description: Mapped[str | None] = mapped_column(Text)
@@ -55,7 +57,7 @@ class Product(Base):
 
     @property
     def low_stock(self) -> bool:
-        return self.stock_qty <= self.min_stock
+        return self.track_stock and self.stock_qty <= self.min_stock
 
     @property
     def margin_cents(self) -> int:

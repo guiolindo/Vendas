@@ -28,9 +28,9 @@ def products_query(q: str = "", category_id: int | None = None, status: str = ""
     elif status == "inativos":
         query = query.where(Product.active.is_(False))
     if stock == "baixo":
-        query = query.where(Product.stock_qty <= Product.min_stock, Product.stock_qty > 0)
+        query = query.where(Product.track_stock.is_(True), Product.stock_qty <= Product.min_stock, Product.stock_qty > 0)
     elif stock == "zerado":
-        query = query.where(Product.stock_qty == 0)
+        query = query.where(Product.track_stock.is_(True), Product.stock_qty == 0)
     column = SORTS.get(sort, Product.name)
     return query.order_by(column.desc() if direction == "desc" else column.asc(), Product.id)
 

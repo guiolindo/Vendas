@@ -15,8 +15,14 @@
   <div class="field"><label for="p2">Repita a senha</label><input id="p2" name="password2" type="password" autocomplete="new-password" required></div>
   <div class="field"><label for="biz">Nome do seu negócio <span class="hint">(opcional; aparece no comprovante)</span></label>
     <input id="biz" name="business_name" maxlength="80"></div>
+  <fieldset class="field" style="border:0;padding:0;margin:0 0 1rem">
+    <legend style="font-weight:600;margin-bottom:.35rem">Você quer controlar o estoque?</legend>
+    <label style="font-weight:400;display:block"><input type="radio" name="stock_mode" value="sim" checked> Sim: o sistema baixa a quantidade a cada venda e avisa quando acabar</label>
+    <label style="font-weight:400;display:block"><input type="radio" name="stock_mode" value="nao"> Não: só vendo e cobro, sem contar quantidade</label>
+    <p class="help">Dá para mudar depois em Configurações, e também produto por produto.</p>
+  </fieldset>
   <div class="field"><label for="p1">Quem vende? <span class="hint">(opcional; pode mudar depois em Pessoas)</span></label>
     <input id="p1" name="person1" maxlength="80" placeholder="Nome da primeira pessoa" style="margin-bottom:.5rem">
-    <input id="p2" name="person2" maxlength="80" placeholder="Nome da segunda pessoa"></div>
+    <input id="p3" name="person2" maxlength="80" placeholder="Nome da segunda pessoa"></div>
   <button class="btn primary" style="width:100%" type="submit">Criar e entrar</button>
 </form></div></body></html>

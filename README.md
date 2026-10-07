@@ -56,6 +56,14 @@ Defina `VENDAS_ENV=prod` para ligar as proteções de produção (cookie seguro,
 - **Excel**: valores, datas e percentuais são tipos do Excel (somam, filtram, ordenam); texto que começa com `=`, `+`, `-` ou `@` fica como texto (sem injeção de fórmula).
 - **Comprovante**: nunca mostra custo nem margem (testado). Mostra produtos, quem vendeu, pagamentos, saldo e vencimento, carimbo da situação e, em venda a prazo, a linha de assinatura do cliente. É um documento **sem valor fiscal**. Para PDF, use *Imprimir → Salvar como PDF* do navegador; a bobina declara a altura do papel conforme o conteúdo.
 
+## Com ou sem controle de estoque
+
+No primeiro acesso o sistema pergunta se você quer controlar o estoque. A resposta vira o padrão dos produtos novos (mude em **Configurações**), e cada produto ainda tem a sua caixa **Controlar o estoque deste produto**.
+
+- **Sem controle:** vende qualquer quantidade, nada baixa nem "acaba", o produto não aparece em estoque baixo nem nos relatórios de estoque. Preço, custo, margem e lucro funcionam igual. Serve para serviços, encomendas e quem não conta quantidade.
+- **Com controle:** cada venda baixa a quantidade (nunca fica negativa, nem com duas vendas ao mesmo tempo) e o sistema avisa quando chegar ao mínimo.
+- Ligar o controle depois: o estoque começa com o que estiver registrado (zero); lance a quantidade em "Contei e o número é outro". Vendas antigas, feitas sem controle, não devolvem estoque se forem canceladas.
+
 ## Custo, compras e o que dá para editar ou excluir
 
 **Mudar o custo (ou o preço) vale só daqui pra frente.** Cada item vendido guarda uma cópia do custo e do preço do momento da venda; painéis, gráficos, relatórios e a margem de cada venda leem essa cópia. Por isso mudar o custo **não altera nenhuma estatística do passado** (há testes que provam isso em painel, gráficos e relatórios). Cada mudança de custo fica no *Histórico de custo* do produto (cadastro, edição, compra, compra excluída).

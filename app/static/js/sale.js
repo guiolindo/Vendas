@@ -60,20 +60,20 @@
     }
     var head = $("product-search").value ? "" : '<div class="small muted" style="padding:.5rem 1rem">Mais vendidos</div>';
     box.innerHTML = head + state.results.map(function (p, idx) {
-      var cls = p.stock <= 0 ? "out" : (p.stock <= 3 ? "low" : "");
+      var cls = p.stock === null ? "" : p.stock <= 0 ? "out" : (p.stock <= 3 ? "low" : "");
       return '<button type="button" class="result' + (idx === state.active ? " active" : "") + '" role="option" data-idx="' + idx + '">' +
         '<span class="r-name">' + esc(p.name) + '</span><span class="r-price">' + Money.format(p.price_cents) + "</span>" +
         '<span class="r-meta">' + (p.owner ? '<span class="owner-tag">' + esc(p.owner) + "</span> " : "") + esc(p.code) + (p.sku ? " · " + esc(p.sku) : "") + '</span><span class="r-stock ' + cls + '">' +
-        (p.stock <= 0 ? "Sem estoque" : p.stock + " " + esc(p.unit) + " em estoque") + "</span></button>";
+        (p.stock === null ? "" : p.stock <= 0 ? "Sem estoque" : p.stock + " " + esc(p.unit) + " em estoque") + "</span></button>";
     }).join("");
     $("product-search").setAttribute("aria-expanded", "true");
   }
 
   function addProduct(p) {
-    if (p.stock <= 0) { flash("“" + p.name + "” está sem estoque."); return; }
+    if (p.stock !== null && p.stock <= 0) { flash("“" + p.name + "” está sem estoque."); return; }
     var line = state.cart.filter(function (i) { return i.id === p.id; })[0];
     if (line) {
-      if (line.qty >= line.stock) { flash("Só há " + line.stock + " " + line.unit + " de “" + line.name + "” em estoque."); }
+      if (line.stock !== null && line.qty >= line.stock) { flash("Só há " + line.stock + " " + line.unit + " de “" + line.name + "” em estoque."); }
       else line.qty += 1;
     } else {
       state.cart.push({ id: p.id, name: p.name, unit: p.unit, list: p.price_cents, cost: p.cost_cents || 0, price: null, qty: 1, stock: p.stock });
@@ -237,7 +237,7 @@
   $("cart").addEventListener("click", function (e) {
     var b = e.target.closest("[data-act]"); if (!b) return;
     var row = b.closest(".cart-row"), i = state.cart[+row.dataset.idx], act = b.dataset.act;
-    if (act === "inc") { if (i.qty < i.stock) i.qty++; else flash("Só há " + i.stock + " " + i.unit + " de “" + i.name + "” em estoque."); }
+    if (act === "inc") { if (i.stock === null || i.qty < i.stock) i.qty++; else flash("Só há " + i.stock + " " + i.unit + " de “" + i.name + "” em estoque."); }
     else if (act === "dec") { i.qty = Math.max(1, i.qty - 1); }
     else if (act === "del") { state.cart.splice(+row.dataset.idx, 1); }
     else return;
@@ -249,7 +249,7 @@
     if (e.target.dataset.act === "qty") {
       var q = parseInt(e.target.value, 10);
       if (isNaN(q) || q < 1) q = 1;
-      if (q > i.stock) { flash("Só há " + i.stock + " " + i.unit + " de “" + i.name + "” em estoque."); q = i.stock; }
+      if (i.stock !== null && q > i.stock) { flash("Só há " + i.stock + " " + i.unit + " de “" + i.name + "” em estoque."); q = i.stock; }
       i.qty = q;
     } else if (e.target.dataset.act === "price") {
       var c = Money.parse(e.target.value);

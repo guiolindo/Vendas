@@ -55,11 +55,12 @@ def _prefill(raw: str) -> dict | None:
     items, skipped = [], 0
     for it in old.items:
         p = it.product
-        if not p.active or p.stock_qty <= 0:
+        if not p.active or (p.track_stock and p.stock_qty <= 0):
             skipped += 1
             continue
         items.append({"id": p.id, "name": p.name, "unit": p.unit, "code": p.code, "list": p.price_cents, "cost": p.cost_cents,
-                      "stock": p.stock_qty, "qty": min(it.quantity, p.stock_qty),
+                      "stock": p.stock_qty if p.track_stock else None,
+                      "qty": min(it.quantity, p.stock_qty) if p.track_stock else it.quantity,
                       "price": None if it.unit_price_cents == p.price_cents else it.unit_price_cents})
     customer = None
     if old.customer and old.customer.active:

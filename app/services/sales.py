@@ -166,6 +166,8 @@ def _create_sale(session: Session, data: SaleInput, user_id: int | None = None) 
         session.flush()
 
         for product, qty, _ in sorted(lines, key=lambda l: l[0].id):
+            if not product.track_stock:
+                continue                      # sem controle de estoque: vende sem baixar nada
             apply_movement(session, product.id, -qty, "venda", sale_id=sale.id, user_id=user_id)
 
         if paid > 0:
@@ -245,6 +247,10 @@ def cancel_sale(session: Session, sale_id: int, reason: str, user_id: int | None
         sale.cancelled_at = now
         sale.cancel_reason = reason[:255]
         for item in sorted(sale.items, key=lambda i: i.product_id):
+            if not session.scalar(select(StockMovement.id).where(
+                    StockMovement.sale_id == sale.id, StockMovement.product_id == item.product_id,
+                    StockMovement.kind == "venda")):
+                continue                      # esta venda não baixou estoque (produto sem controle): nada a devolver
             apply_movement(session, item.product_id, item.quantity, "cancelamento",
                            sale_id=sale.id, note=f"Venda #{sale.id} cancelada", user_id=user_id)
         for payment in sale.payments:

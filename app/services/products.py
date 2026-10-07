@@ -28,6 +28,7 @@ class ProductInput:
     active: bool = True
     initial_stock: int = 0  # só na criação
     owner_id: int | None = None  # de quem é o produto
+    track_stock: bool = True     # False: vende sem controlar quantidade
 
 
 def _clean(value: str | None) -> str | None:
@@ -110,7 +111,8 @@ def _fill(session: Session, product: Product, data: ProductInput, user_id: int |
         product.cost_cents = 0                    # o cadastro entra no histórico de custo (abaixo), depois do flush
     elif data.cost_cents != product.cost_cents:
         costs.set_cost(session, product, data.cost_cents, "edição", user_id)   # só vale para as próximas vendas
-    product.min_stock = data.min_stock
+    product.track_stock = data.track_stock
+    product.min_stock = data.min_stock if data.track_stock else product.min_stock or 0
     product.unit = _clean(data.unit) or "un"
     product.description = _clean(data.description)
     product.active = data.active
@@ -127,7 +129,7 @@ def create_product(session: Session, data: ProductInput, user_id: int | None = N
         session.flush()
         if data.cost_cents > 0:
             costs.set_cost(session, product, data.cost_cents, "cadastro", user_id)
-        if data.initial_stock > 0:
+        if data.track_stock and data.initial_stock > 0:
             movement = apply_movement(session, product.id, data.initial_stock, "inicial", user_id=user_id)
             movement.unit_cost_cents = data.cost_cents or None
     return product

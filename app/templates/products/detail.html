@@ -7,8 +7,13 @@
   <div class="actions"><a class="btn" href="{{ url_for('products.edit', product_id=product.id) }}">{{ icon('edit') }} Editar</a></div></div>
 
 <section class="ledger compact">
+  {% if not product.track_stock %}
+  <div><span class="label">Estoque</span><span class="value">Sem controle</span>
+    <span class="sub">Vende sem contar quantidade. Para controlar, <a href="{{ url_for('products.edit', product_id=product.id) }}">edite o produto</a>.</span></div>
+  {% else %}
   <div><span class="label">Em estoque</span><span class="value">{{ product.stock_qty|qtd }} <small>{{ product.unit }}</small></span>
     <span class="sub">{% if product.stock_qty == 0 %}<span class="owe-late">Acabou</span>{% elif product.low_stock %}<span class="owe-soon">Abaixo do mínimo ({{ product.min_stock }})</span>{% else %}Mínimo: {{ product.min_stock }}{% endif %}</span></div>
+  {% endif %}
   <div><span class="label">Preço de venda</span><span class="value">{{ product.price_cents|brl }}</span><span class="sub">{% if product.cost_cents %}Custou {{ product.cost_cents|brl }} · sobra {{ product.margin_cents|brl }} ({{ product.margin_percent|string|replace('.', ',') }}%){% else %}<span class="owe-soon">Sem custo informado</span>{% endif %}</span></div>
   <div><span class="label">Já vendido</span><span class="value">{{ sold_qty|qtd }}</span><span class="sub">{{ sold_cents|brl }} em vendas</span></div>
   <div class="{{ 'in' if profit.amount > 0 }}"><span class="label">Lucro até hoje</span>
@@ -18,7 +23,7 @@
 
 <div class="cols">
   <div class="stack">
-    <section class="panel">
+    {% if product.track_stock %}<section class="panel">
       <header><h2>Atualizar estoque</h2></header>
       <div class="body">
         <form method="post" action="{{ url_for('products.stock_action', product_id=product.id) }}" class="pay-form stock-form">
@@ -34,8 +39,8 @@
           <button class="btn primary" type="submit">Registrar</button>
         </form>
       </div>
-    </section>
-    <section class="panel">
+    </section>{% endif %}
+    {% if product.track_stock or movements %}<section class="panel">
       <header><h2>Movimentação do estoque</h2>{% if invested %}<span class="small muted">Já gasto em compras: {{ invested|brl }}</span>{% endif %}</header>
       {% if movements %}<div class="table-wrap"><table class="cards">
         <thead><tr><th>Data</th><th>Tipo</th><th class="right">Qtd.</th><th class="right">Custo (un.)</th><th class="right">Ficou</th><th class="no-print"></th></tr></thead>
@@ -50,7 +55,7 @@
                 <div class="field"><label>Motivo <span class="hint">(opcional)</span></label><input name="reason" maxlength="255" placeholder="Lançada por engano"></div>
                 <button class="btn danger small" type="submit">Excluir</button></form></details>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
       {% else %}<div class="empty">Sem movimentação.</div>{% endif %}
-    </section>
+    </section>{% endif %}
   </div>
   <div class="stack">
     <section class="panel">

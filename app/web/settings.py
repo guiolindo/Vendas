@@ -11,7 +11,8 @@ bp = Blueprint("settings", __name__, url_prefix="/configuracoes")
 def index():
     if request.method == "POST":
         try:
-            svc.save(db(), request.form, request.form.get("show_seller") == "on")
+            svc.save(db(), request.form, request.form.get("show_seller") == "on",
+                     track_stock=request.form.get("track_stock") == "on")
         except BusinessError as e:
             flash(e.message, "error")
             return render_template("settings/index.html", values={**svc.load(db()), **request.form.to_dict()},

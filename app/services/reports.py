@@ -175,8 +175,10 @@ def margin_report(session: Session, p: ReportParams, today: date) -> Report:
         has_cost = x.cost_cents > 0
         rows.append({"name": x.name, "owner": names.get(x.owner_id, ""), "cost": x.cost_cents if has_cost else None,
                      "price": x.price_cents, "margin": x.margin_cents if has_cost else None, "margin_pct": x.margin_percent,
-                     "stock": x.stock_qty, "stock_cost": x.stock_qty * x.cost_cents, "stock_value": x.stock_qty * x.price_cents,
-                     "potential": x.stock_qty * x.margin_cents if has_cost else None})
+                     "stock": x.stock_qty if x.track_stock else None,
+                     "stock_cost": x.stock_qty * x.cost_cents if x.track_stock else None,
+                     "stock_value": x.stock_qty * x.price_cents if x.track_stock else None,
+                     "potential": x.stock_qty * x.margin_cents if has_cost and x.track_stock else None})
     rows.sort(key=lambda r: (r["margin_pct"] is None, -(r["margin_pct"] or 0), r["name"]))
     cols = [Column("name", "Produto"), Column("owner", "Pessoa"), Column("cost", "Custo", "money"), Column("price", "Preço", "money"),
             Column("margin", "Margem", "money"), Column("margin_pct", "Margem %", "percent"), Column("stock", "Em estoque", "int"),
@@ -218,7 +220,7 @@ def payments_report(session: Session, p: ReportParams, today: date) -> Report:
 
 
 def stock_report(session: Session, p: ReportParams, today: date) -> Report:
-    q = select(Product).where(Product.active.is_(True)).order_by(Product.name)
+    q = select(Product).where(Product.active.is_(True), Product.track_stock.is_(True)).order_by(Product.name)
     if p.status == "baixo":
         q = q.where(Product.stock_qty <= Product.min_stock)
     if p.owner_id:

@@ -15,3 +15,14 @@
   }
   cost.addEventListener("input", show); price.addEventListener("input", show); show();
 })();
+
+/* "Controlar estoque": esconde os campos de quantidade quando o produto não terá estoque. */
+(function () {
+  "use strict";
+  var box = document.getElementById("f-track");
+  if (!box) return;
+  function sync() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-stock-only]"), function (el) { el.hidden = !box.checked; });
+  }
+  box.addEventListener("change", sync); sync();
+})();

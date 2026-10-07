@@ -115,9 +115,11 @@ def setup():
                             except Exception:
                                 db().rollback()
                     business = request.form.get("business_name", "").strip()
-                    if business and len(business) <= 80:
-                        from ..services import settings as settings_svc
-                        settings_svc.save(db(), {"business_name": business}, show_seller=True)
+                    if len(business) > 80:
+                        business = ""
+                    from ..services import settings as settings_svc
+                    settings_svc.save(db(), {"business_name": business}, show_seller=True,
+                                      track_stock=request.form.get("stock_mode") != "nao")
                     _start_session(user)
                     sec.audit(db(), "setup", user.id, None, ip)
                     flash(f"Tudo certo, {name.split()[0]}. Siga o passo a passo abaixo para começar.", "success")

@@ -2,6 +2,7 @@
 {% block title %}{{ 'Editar produto' if product else 'Novo produto' }}{% endblock %}
 {% block content %}
 {% set v = values %}
+{% set tracked = (v.get('track_stock') is not none) if v else (product.track_stock if product else track_default) %}
 <div class="page-head"><div><a class="crumb" href="{{ url_for('products.detail', product_id=product.id) if product else url_for('products.index') }}">‹ {{ product.name if product else 'Produtos' }}</a>
   <h1>{{ 'Editar produto' if product else 'Novo produto' }}</h1></div></div>
 <form method="post" class="panel form-narrow" novalidate><div class="body">
@@ -14,16 +15,18 @@
       {% for o in owners %}<option value="{{ o.id }}" {{ 'selected' if (v.get('owner') or (product.owner_id|string if product and product.owner_id else '')) == o.id|string }}>{{ o.name }}</option>{% endfor %}</select>
     {% if product %}<p class="help">Trocar o dono vale só para as próximas vendas; as antigas continuam com quem vendeu.</p>{% endif %}</div>
   {% endif %}
+  <label class="check stock-toggle"><input type="checkbox" name="track_stock" id="f-track" {% if tracked %}checked{% endif %}> <strong>Controlar o estoque deste produto</strong>
+    <span class="hint">Ligado: cada venda baixa a quantidade e o sistema avisa quando acabar. Desligado: vende sem limite, sem contar.</span></label>
   <div class="grid" data-margin-form>
     {{ money_field('Quanto custou pra você', 'cost', v, error_field, (product.cost_cents|brl_plain) if product else '', help=('Se mudar, vale só para as próximas vendas. As vendas já feitas continuam com o custo da época.' if product else 'O que você pagou pelo produto. É com isso que o sistema calcula a sua margem.')) }}
     {{ money_field('Preço de venda', 'price', v, error_field, (product.price_cents|brl_plain) if product else '', required=true, help=('Vale só para as próximas vendas.' if product else '')) }}
-    {% if not product %}{{ field('Estoque inicial', 'initial_stock', v, error_field, '', type='number', placeholder='0', attrs='min="0" inputmode="numeric"') }}{% endif %}
+    {% if not product %}<div data-stock-only {% if not tracked %}hidden{% endif %}>{{ field('Estoque inicial', 'initial_stock', v, error_field, '', type='number', placeholder='0', attrs='min="0" inputmode="numeric"') }}</div>{% endif %}
   </div>
   <p class="margin-preview" id="margin-preview" aria-live="polite" hidden></p>
   <details class="more" style="margin-top:1rem" {% if error_field in ('code','sku','cost','min_stock','unit') or product %}open{% endif %}><summary>Mais detalhes</summary>
     <div class="inner">
       <div class="grid">
-        {{ field('Estoque mínimo', 'min_stock', v, error_field, product.min_stock if product else '', type='number', help='Avisa quando chegar nesse número.', attrs='min="0"') }}
+        <div data-stock-only {% if not tracked %}hidden{% endif %}>{{ field('Estoque mínimo', 'min_stock', v, error_field, product.min_stock if product else '', type='number', help='Avisa quando chegar nesse número.', attrs='min="0"') }}</div>
         {{ field('Unidade', 'unit', v, error_field, product.unit if product else 'un', attrs='maxlength="10" list="units"') }}
         <datalist id="units"><option value="un"><option value="cx"><option value="pct"><option value="par"><option value="kg"><option value="m"></datalist>
         {{ field('Código', 'code', v, error_field, product.code if product else '', help='Se deixar vazio, o sistema cria um.') }}

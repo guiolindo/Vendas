@@ -24,10 +24,11 @@ def load(session: Session) -> dict[str, str]:
     stored = {s.key: (s.value or "") for s in session.scalars(select(Setting))}
     out = {k: stored.get(k, default) if k in stored else default for k, (_, _, default) in FIELDS.items()}
     out["show_seller"] = stored.get("show_seller", "1") == "1"
+    out["track_stock"] = stored.get("track_stock", "1") == "1"   # padrão dos produtos novos
     return out
 
 
-def save(session: Session, values: dict[str, str], show_seller: bool) -> None:
+def save(session: Session, values: dict[str, str], show_seller: bool, track_stock: bool | None = None) -> None:
     clean = {}
     for key, (label, maxlen, default) in FIELDS.items():
         text = (values.get(key) or "").strip()
@@ -36,6 +37,8 @@ def save(session: Session, values: dict[str, str], show_seller: bool) -> None:
     if not clean["business_name"]:
         clean["business_name"] = DEFAULT_NAME
     clean["show_seller"] = "1" if show_seller else "0"
+    if track_stock is not None:
+        clean["track_stock"] = "1" if track_stock else "0"
     with atomic(session):
         existing = {s.key: s for s in session.scalars(select(Setting))}
         for key, value in clean.items():

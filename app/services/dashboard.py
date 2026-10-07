@@ -113,7 +113,7 @@ def build_for_owner(session: Session, today: date, owner_id: int) -> Dashboard:
         margin_month=a.margin_month, overdue=a.overdue, overdue_customers=len(a.overdue_customers), due_today=a.due_today, due_soon=a.due_soon,
         top_products=top,
         low_stock=list(session.scalars(
-            select(Product).where(Product.active.is_(True), Product.owner_id == owner_id,
+            select(Product).where(Product.active.is_(True), Product.owner_id == owner_id, Product.track_stock.is_(True),
                                   Product.stock_qty <= Product.min_stock).order_by(Product.stock_qty, Product.name).limit(6))),
         debtors=debtors,
         overdue_sales=sorted(a.overdue_sales, key=lambda s: (s.due_date, s.id))[:5],
@@ -144,7 +144,7 @@ def build(session: Session, today: date) -> Dashboard:
         due_soon=_remaining_where(session, Sale.due_date > today, Sale.due_date <= upcoming_limit(today)),
         top_products=top_products(session, month_start, today),
         low_stock=list(session.scalars(
-            select(Product).where(Product.active.is_(True), Product.stock_qty <= Product.min_stock)
+            select(Product).where(Product.active.is_(True), Product.track_stock.is_(True), Product.stock_qty <= Product.min_stock)
             .order_by(Product.stock_qty, Product.name).limit(6))),
         debtors=debtors,
         overdue_sales=list(session.scalars(

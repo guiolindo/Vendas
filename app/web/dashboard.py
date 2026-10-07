@@ -33,7 +33,7 @@ def _getting_started(people) -> list[dict] | None:
     steps = [
         {"title": "Cadastre quem vende", "hint": "Cada produto pertence a uma pessoa, e cada uma tem o seu painel.",
          "url": "owners.index", "done": bool(people), "cta": "Cadastrar pessoas"},
-        {"title": "Cadastre os produtos", "hint": "Diga quanto cada um custou para você: é assim que o sistema calcula a sua margem.",
+        {"title": "Cadastre os produtos", "hint": "Diga quanto cada um custou para você: é assim que o sistema calcula a sua margem." + (" Informe também quantos tem em estoque." if settings_svc.load(s)["track_stock"] else ""),
          "url": "products.new", "done": has_products, "cta": "Cadastrar produto"},
         {"title": "Cadastre clientes que compram a prazo", "hint": "Também dá para cadastrar na hora da venda.",
          "url": "customers.new", "done": bool(s.scalar(select(func.count()).select_from(Customer))), "cta": "Cadastrar cliente", "optional": True},

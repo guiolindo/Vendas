@@ -15,6 +15,12 @@ from . import costs
 MAX_QTY = 1_000_000
 
 
+def _require_tracked(session: Session, product_id: int) -> None:
+    tracked = session.scalar(select(Product.track_stock).where(Product.id == product_id))
+    if tracked is False:
+        raise BusinessError("Este produto está sem controle de estoque. Ligue o controle na edição do produto para usar estoque.")
+
+
 def apply_movement(
     session: Session,
     product_id: int,
@@ -32,6 +38,8 @@ def apply_movement(
     """
     if delta == 0:
         raise BusinessError("A quantidade não pode ser zero.")
+    if kind not in ("venda", "cancelamento"):
+        _require_tracked(session, product_id)
     result = session.execute(
         update(Product)
         .where(Product.id == product_id, Product.stock_qty + delta >= 0)
