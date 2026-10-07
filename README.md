@@ -24,7 +24,7 @@ Sem `DATABASE_URL`, usa um SQLite em `instance/vendas.db` (só para desenvolvime
 ## Publicar no Railway (PostgreSQL)
 
 1. Crie um projeto no Railway a partir deste repositório e adicione o plugin **PostgreSQL**.
-2. No serviço do app, em *Variables*, defina:
+2. No serviço do app, em *Variables*, defina (atalho: **Raw Editor** e cole o conteúdo de [`.env.example`](.env.example), trocando os dois valores `troque-…`):
    - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (o app aceita o formato `postgres://…` do Railway)
    - `VENDAS_SECRET_KEY` = uma chave longa e aleatória (`python -c "import secrets; print(secrets.token_hex(32))"`).
    - `VENDAS_SETUP_TOKEN` = um código só seu (ex.: 20+ caracteres aleatórios). Sem ele, o cadastro do primeiro usuário fica **trancado**: a URL do Railway é pública, e sem esse código quem chegasse primeiro viraria o dono do sistema.
