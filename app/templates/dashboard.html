@@ -18,7 +18,8 @@
   <div><span class="label">Vendido hoje</span><span class="value">{{ d.sold_today|brl }}</span>
     <span class="sub">{{ d.sales_today }} {{ 'venda' if d.sales_today == 1 else 'vendas' }}</span></div>
   <div><span class="label">Vendido no mês</span><span class="value">{{ d.sold_month|brl }}</span>
-    <span class="sub">{{ d.sales_month }} {{ 'venda' if d.sales_month == 1 else 'vendas' }}</span></div>
+    <span class="sub">{{ d.sales_month }} {{ 'venda' if d.sales_month == 1 else 'vendas' }}{% if d.margin_month.percent is not none %} · margem {{ d.margin_month.amount|brl }} ({{ d.margin_month.percent|string|replace('.', ',') }}%){% endif %}</span>
+    {% if d.margin_month.uncosted %}<span class="sub warn-note">{{ d.margin_month.uncosted }} {{ 'item' if d.margin_month.uncosted == 1 else 'itens' }} sem custo fora da margem</span>{% endif %}</div>
   <div class="in"><span class="label">Recebido no mês</span><span class="value">{{ d.received_month|brl }}</span>
     <span class="sub">{{ d.received_today|brl }} hoje</span></div>
   <a href="{{ url_for('collections.index', aba='abertos') }}"><span class="label">A receber</span><span class="value">{{ d.receivable|brl }}</span>
@@ -31,10 +32,12 @@
 <section class="panel" style="margin-top:1rem">
   <header><h2>Por pessoa</h2><span class="small muted">Vendido e recebido neste mês</span></header>
   <div class="table-wrap"><table class="cards">
-    <thead><tr><th>Pessoa</th><th class="right">Vendido</th><th class="right">Recebido</th><th class="right">A receber</th><th class="right">Vencido</th></tr></thead>
+    <thead><tr><th>Pessoa</th><th class="right">Vendido</th><th class="right">Margem</th><th class="right">Recebido</th><th class="right">A receber</th><th class="right">Vencido</th></tr></thead>
     <tbody>{% for r in d.by_owner %}<tr>
       <td>{% if r.owner %}<a href="{{ url_for('dashboard.index', pessoa=r.owner.id) }}">{{ r.owner.name }}</a>{% if not r.owner.active %} <span class="badge inativo">Inativa</span>{% endif %}{% else %}<span class="muted">Produtos sem dono</span>{% endif %}</td>
-      <td class="right money">{{ r.acc.sold_month|brl }}</td><td class="right money in-money">{{ r.acc.received_month|brl }}</td>
+      <td class="right money">{{ r.acc.sold_month|brl }}</td>
+      <td class="right money">{{ r.acc.margin_month.amount|brl if r.acc.margin_month.percent is not none else '—' }}{% if r.acc.margin_month.percent is not none %}<span class="sub">{{ r.acc.margin_month.percent|string|replace('.', ',') }}%</span>{% endif %}</td>
+      <td class="right money in-money">{{ r.acc.received_month|brl }}</td>
       <td class="right money">{{ r.acc.receivable|brl }}</td><td class="right money {{ 'owe-late' if r.acc.overdue else 'muted' }}">{{ r.acc.overdue|brl if r.acc.overdue else '—' }}</td></tr>{% endfor %}</tbody></table></div>
 </section>
 {% endif %}

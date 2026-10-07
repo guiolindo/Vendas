@@ -13,6 +13,7 @@ from ..repositories import customers as customer_repo
 from ..repositories import sales as sale_repo
 from ..repositories.sales import ACTIVE, REMAINING, open_clause
 from . import owners as owner_svc
+from .margin import Margin
 
 
 @dataclass
@@ -33,6 +34,7 @@ class Dashboard:
     debtors: list
     overdue_sales: list[Sale]
     recent_payments: list[Payment]
+    margin_month: Margin = field(default_factory=Margin)
     by_owner: list = field(default_factory=list)  # painel geral: uma linha por pessoa
     owner: object | None = None  # painel de uma pessoa
 
@@ -81,8 +83,7 @@ class OwnerRow:
     acc: owner_svc.Acc
 
 
-def _owner_rows(session: Session, today: date) -> list[OwnerRow]:
-    acc = owner_svc.compute(session, today)
+def _owner_rows(session: Session, acc: dict) -> list[OwnerRow]:
     rows = [OwnerRow(o, acc.get(o.id, owner_svc.Acc())) for o in owner_svc.list_owners(session)]
     loose = acc.get(None)
     if loose and (loose.sold_month or loose.receivable or loose.received_month) and rows:
@@ -109,7 +110,7 @@ def build_for_owner(session: Session, today: date, owner_id: int) -> Dashboard:
     return Dashboard(
         sold_today=a.sold_today, sales_today=a.sales_today, sold_month=a.sold_month, sales_month=a.sales_month,
         received_today=a.received_today, received_month=a.received_month, receivable=a.receivable,
-        overdue=a.overdue, overdue_customers=len(a.overdue_customers), due_today=a.due_today, due_soon=a.due_soon,
+        margin_month=a.margin_month, overdue=a.overdue, overdue_customers=len(a.overdue_customers), due_today=a.due_today, due_soon=a.due_soon,
         top_products=top,
         low_stock=list(session.scalars(
             select(Product).where(Product.active.is_(True), Product.owner_id == owner_id,
@@ -127,6 +128,10 @@ def build(session: Session, today: date) -> Dashboard:
     overdue_customers = int(session.scalar(
         select(func.count(func.distinct(Sale.customer_id))).where(open_clause(), Sale.due_date < today)
     ))
+    acc = owner_svc.compute(session, today)
+    total_margin = Margin()
+    for a in acc.values():
+        total_margin.add(a.margin_month)
     debtors = [customer_repo.to_row(r) for r in session.execute(
         customer_repo.balances_query(today, only="devendo")
         .order_by(func.sum(REMAINING).desc()).limit(6)
@@ -146,5 +151,5 @@ def build(session: Session, today: date) -> Dashboard:
             select(Sale).options(selectinload(Sale.customer))
             .where(sale_repo.status_clause("vencido", today)).order_by(Sale.due_date, Sale.id).limit(5))),
         recent_payments=sale_repo.recent_payments(session, 8),
-        by_owner=_owner_rows(session, today),
+        by_owner=_owner_rows(session, acc), margin_month=total_margin,
     )

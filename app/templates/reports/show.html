@@ -23,25 +23,26 @@
     <div class="field"><label for="situacao">Mostrar</label><select id="situacao" name="situacao"><option value="">Tudo em aberto</option>
       <option value="vencido" {{ 'selected' if params.status == 'vencido' }}>Só vencidos</option><option value="parcial" {{ 'selected' if params.status == 'parcial' }}>Só com pagamento parcial</option></select></div>{% endif %}
     {% if 'sort_products' in r.filters %}
-    <div class="field"><label for="ordem">Ordenar por</label><select id="ordem" name="ordem"><option value="">Quantidade vendida</option><option value="valor" {{ 'selected' if params.sort == 'valor' }}>Valor vendido</option></select></div>{% endif %}
+    <div class="field"><label for="ordem">Ordenar por</label><select id="ordem" name="ordem"><option value="">Quantidade vendida</option><option value="valor" {{ 'selected' if params.sort == 'valor' }}>Valor vendido</option><option value="margem" {{ 'selected' if params.sort == 'margem' }}>Margem (lucro)</option></select></div>{% endif %}
     {% if 'stock_status' in r.filters %}
     <div class="field"><label for="situacao">Mostrar</label><select id="situacao" name="situacao"><option value="">Todos os produtos</option><option value="baixo" {{ 'selected' if params.status == 'baixo' }}>Só abaixo do mínimo</option></select></div>{% endif %}
     <button class="btn" type="submit">Aplicar</button>
   </form>{% endif %}
   {% if r.rows %}
   <div class="table-wrap"><table>
-    <thead><tr>{% for c in r.columns %}<th class="{{ 'right' if c.kind in ('money','int') else '' }}">{{ c.label }}</th>{% endfor %}</tr></thead>
+    <thead><tr>{% for c in r.columns %}<th class="{{ 'right' if c.kind in ('money','int','percent') else '' }}">{{ c.label }}</th>{% endfor %}</tr></thead>
     <tbody>{% for row in r.rows %}<tr>
       {% for c in r.columns %}{% set v = row[c.key] %}
-      <td class="{{ 'right money' if c.kind in ('money','int') else '' }}">
+      <td class="{{ 'right money' if c.kind in ('money','int','percent') else '' }}">
         {%- if c.kind == 'money' %}{{ v|brl }}
+        {%- elif c.kind == 'percent' %}{{ (v|string|replace('.', ',') ~ '%') if v is not none else '—' }}
         {%- elif c.kind == 'date' %}{{ v|data }}
         {%- elif c.kind == 'status' %}{{ badge(v) }}
         {%- elif c.kind == 'link' %}<a href="{{ url_for('sales.detail', sale_id=v) }}">#{{ v }}</a>
         {%- elif c.kind == 'int' %}{{ v|qtd }}
         {%- else %}{{ v if v not in (None, '') else '—' }}{% endif -%}
       </td>{% endfor %}</tr>{% endfor %}</tbody>
-    {% if r.totals %}<tfoot><tr>{% for c in r.columns %}<td class="{{ 'right money' if c.kind in ('money','int') else '' }}">
+    {% if r.totals %}<tfoot><tr>{% for c in r.columns %}<td class="{{ 'right money' if c.kind in ('money','int','percent') else '' }}">
       {%- if loop.first %}Total{% elif c.key in r.totals %}{{ r.totals[c.key]|brl if c.kind == 'money' else r.totals[c.key]|qtd }}{% endif %}</td>{% endfor %}</tr></tfoot>{% endif %}
   </table></div>
   {% else %}<div class="empty"><strong>Nada para mostrar neste período.</strong>Ajuste as datas ou os filtros.</div>{% endif %}

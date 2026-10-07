@@ -18,10 +18,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..db import atomic
+from ..domain.allocation import allocate
 from ..domain.text import limited
 from ..domain.status import Status, sale_status, upcoming_limit
 from ..errors import BusinessError, NotFound
 from ..models import Owner, Payment, Product, Sale, SaleItem
+from .margin import Margin, margins_by_owner
 
 
 # ── cadastro das pessoas ─────────────────────────────────────────────────────
@@ -71,26 +73,15 @@ def list_owners(session: Session, only_active: bool = False) -> list[Owner]:
 
 
 # ── divisão proporcional ─────────────────────────────────────────────────────
-def allocate(total: int, weights: dict) -> dict:
-    """Reparte `total` centavos conforme os pesos, sem perder nem criar centavos.
-    O resto da divisão vai para quem tem o maior peso (empate: menor chave)."""
-    wsum = sum(weights.values())
-    if wsum <= 0 or total <= 0:
-        return {k: 0 for k in weights}
-    out = {k: total * w // wsum for k, w in weights.items()}
-    leftover = total - sum(out.values())
-    if leftover:
-        top = sorted(weights, key=lambda k: (-weights[k], -1 if k is None else k))[0]
-        out[top] += leftover
-    return out
-
-
 def sale_shares(sale: Sale) -> dict[int | None, int]:
-    """Parte de cada pessoa no TOTAL da venda (soma exatamente total_cents)."""
-    weights: dict[int | None, int] = defaultdict(int)
+    """Parte de cada pessoa no TOTAL da venda (soma exatamente total_cents).
+    Calculada item a item (o desconto é rateado nos itens), para somar igual à margem."""
+    from .margin import item_nets
+    nets = item_nets(sale)
+    shares: dict[int | None, int] = defaultdict(int)
     for item in sale.items:
-        weights[item.owner_id] += item.total_cents
-    return allocate(sale.total_cents, dict(weights))
+        shares[item.owner_id] += nets[item.id]
+    return dict(shares)
 
 
 def payment_splits(sale: Sale, shares: dict) -> list[tuple[Payment, dict]]:
@@ -132,6 +123,7 @@ class Acc:
     overdue: int = 0
     due_today: int = 0
     due_soon: int = 0
+    margin_month: Margin = field(default_factory=Margin)
     overdue_customers: set = field(default_factory=set)
     debtors: dict = field(default_factory=dict)  # customer_id -> [customer, pendente, vencido, qtd em aberto]
     overdue_sales: list = field(default_factory=list)
@@ -152,6 +144,7 @@ def compute(session: Session, today: date) -> dict[int | None, Acc]:
     for sale in sales:
         shares = sale_shares(sale)
         splits = payment_splits(sale, shares)
+        sale_margins = margins_by_owner(sale) if month_start <= sale.sale_date <= today else {}
         paid_now = {k: sum(part[k] for _, part in splits) for k in shares}
         open_sale = sale.paid_cents < sale.total_cents
         status = sale_status(sale.total_cents, sale.paid_cents, sale.due_date, today)
@@ -161,6 +154,7 @@ def compute(session: Session, today: date) -> dict[int | None, Acc]:
                 a.sold_today += share; a.sales_today += 1
             if month_start <= sale.sale_date <= today:
                 a.sold_month += share; a.sales_month += 1
+                a.margin_month.add(sale_margins[oid])
             for payment, part in splits:
                 if payment.paid_at == today:
                     a.received_today += part[oid]

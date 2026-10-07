@@ -49,7 +49,7 @@ def test_dashboard_numbers(session, scenario):
 
 def test_reports_totals_match(session, scenario):
     r = reports.build(session, "vendas", ReportParams(), TODAY)
-    assert r.totals == {"total": 60000, "paid": 15000, "remaining": 45000}
+    assert r.totals == {"total": 60000, "margin": 36000, "paid": 15000, "remaining": 45000}   # 6 un. vendidas: 600 - custo 240
     assert len(r.rows) == 3                                       # canceladas ficam de fora...
     r = reports.build(session, "vendas", ReportParams(status="cancelada"), TODAY)
     assert [x["number"] for x in r.rows] == [4] and r.totals["total"] == 0  # ...e só aparecem se filtradas

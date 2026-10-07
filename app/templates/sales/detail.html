@@ -36,6 +36,19 @@
           <tr><td colspan="3" class="right">Desconto</td><td class="right money">− {{ sale.discount_cents|brl }}</td></tr>{% endif %}
           <tr><td colspan="3" class="right">Total</td><td class="right money">{{ sale.total_cents|brl }}</td></tr></tfoot></table></div>
     </section>
+    {% if not sale.cancelled %}
+    <section class="panel private no-print">
+      <header><h2>Margem desta venda</h2><span class="small muted">Só você vê. Não sai no comprovante.</span></header>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Produto</th><th class="right">Custou</th><th class="right">Vendeu por</th><th class="right">Margem</th></tr></thead>
+        <tbody>{% for i in sale.items %}{% set im = item_margins[i.id] %}<tr><td>{{ i.product_name }}</td>
+          {% if im.uncosted %}<td class="right muted" colspan="3">sem custo informado, fora da margem</td>
+          {% else %}<td class="right money">{{ im.cost|brl }}</td><td class="right money">{{ im.revenue|brl }}</td>
+          <td class="right money"><span class="{{ 'owe-late' if im.amount < 0 else 'in-money' }}">{{ im.amount|brl }}</span><span class="margin-pct">{{ im.percent|string|replace('.', ',') }}%</span></td>{% endif %}</tr>{% endfor %}</tbody>
+        <tfoot><tr><td>Total</td><td class="right money">{{ margin.cost|brl }}</td><td class="right money">{{ margin.revenue|brl }}</td>
+          <td class="right money">{{ margin.amount|brl }}{% if margin.percent is not none %}<span class="margin-pct">{{ margin.percent|string|replace('.', ',') }}%</span>{% endif %}</td></tr></tfoot></table></div>
+    </section>
+    {% endif %}
     <section class="panel">
       <header><h2>Pagamentos</h2></header>
       {% if sale.payments %}<div class="table-wrap"><table class="cards">

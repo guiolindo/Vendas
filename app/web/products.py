@@ -63,8 +63,16 @@ def detail(product_id: int):
         select(func.coalesce(func.sum(SaleItem.quantity), 0), func.coalesce(func.sum(SaleItem.total_cents), 0))
         .join(Sale, Sale.id == SaleItem.sale_id).where(SaleItem.product_id == product_id, Sale.cancelled_at.is_(None))
     ).one()
+    from ..services import margin as margin_svc
+    profit = margin_svc.Margin()
+    for sale in db().scalars(select(Sale).join(SaleItem, SaleItem.sale_id == Sale.id).where(
+            SaleItem.product_id == product_id, Sale.cancelled_at.is_(None)).options(selectinload(Sale.items))).unique():
+        nets = margin_svc.item_nets(sale)
+        for item in sale.items:
+            if item.product_id == product_id:
+                profit.add(margin_svc.item_margin(item, nets[item.id]))
     return render_template("products/detail.html", product=product, movements=movements, sales=sales,
-                           sold_qty=totals[0], sold_cents=totals[1])
+                           sold_qty=totals[0], sold_cents=totals[1], profit=profit)
 
 
 @bp.route("/<int:product_id>/editar", methods=["GET", "POST"])

@@ -63,7 +63,10 @@ def detail(sale_id: int):
     if sale is None:
         flash("Venda não encontrada.", "error")
         return redirect(url_for("sales.index"))
-    return render_template("sales/detail.html", sale=sale)
+    from ..services import margin as margin_svc
+    nets = margin_svc.item_nets(sale)
+    return render_template("sales/detail.html", sale=sale, margin=margin_svc.sale_margin(sale),
+                           item_margins={i.id: margin_svc.item_margin(i, nets[i.id]) for i in sale.items})
 
 
 @bp.route("/vendas/<int:sale_id>/editar", methods=["GET", "POST"])

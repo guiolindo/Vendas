@@ -20,7 +20,7 @@ def products():
     items = product_repo.search_for_sale(db(), request.args.get("q", ""), owner_id=owner_id)
     return jsonify([{
         "id": p.id, "name": p.name, "code": p.code, "sku": p.sku, "unit": p.unit,
-        "price_cents": p.price_cents, "stock": p.stock_qty, "owner": p.owner.name if p.owner else "",
+        "price_cents": p.price_cents, "cost_cents": p.cost_cents, "stock": p.stock_qty, "owner": p.owner.name if p.owner else "",
     } for p in items])
 
 

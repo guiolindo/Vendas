@@ -9,9 +9,11 @@
 <section class="ledger compact">
   <div><span class="label">Em estoque</span><span class="value">{{ product.stock_qty|qtd }} <small>{{ product.unit }}</small></span>
     <span class="sub">{% if product.stock_qty == 0 %}<span class="owe-late">Acabou</span>{% elif product.low_stock %}<span class="owe-soon">Abaixo do mínimo ({{ product.min_stock }})</span>{% else %}Mínimo: {{ product.min_stock }}{% endif %}</span></div>
-  <div><span class="label">Preço de venda</span><span class="value">{{ product.price_cents|brl }}</span><span class="sub">Custo {{ product.cost_cents|brl }} · margem {{ product.margin_cents|brl }}</span></div>
+  <div><span class="label">Preço de venda</span><span class="value">{{ product.price_cents|brl }}</span><span class="sub">{% if product.cost_cents %}Custou {{ product.cost_cents|brl }} · sobra {{ product.margin_cents|brl }} ({{ product.margin_percent|string|replace('.', ',') }}%){% else %}<span class="owe-soon">Sem custo informado</span>{% endif %}</span></div>
   <div><span class="label">Já vendido</span><span class="value">{{ sold_qty|qtd }}</span><span class="sub">{{ sold_cents|brl }} em vendas</span></div>
-  <div><span class="label">Cadastrado em</span><span class="value" style="font-size:1.125rem">{{ product.created_at|data }}</span></div>
+  <div class="{{ 'in' if profit.amount > 0 }}"><span class="label">Lucro até hoje</span>
+    <span class="value">{{ profit.amount|brl if profit.percent is not none else '—' }}</span>
+    <span class="sub">{% if profit.percent is not none %}{{ profit.percent|string|replace('.', ',') }}% do que vendeu{% elif not product.cost_cents %}Informe o custo para ver o lucro{% else %}Ainda sem vendas{% endif %}</span></div>
 </section>
 
 <div class="cols">

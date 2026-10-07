@@ -103,3 +103,28 @@ def test_setup_creates_the_two_people(tmp_path):
     s = a.extensions["database"].session()
     assert [o.name for o in own.list_owners(s)] == ["Ana", "Bia"]
     s.close(); a.extensions["database"].dispose()
+
+
+def test_margin_shows_on_sale_product_and_form_pages(client, db, two):
+    ana, bia, pa, pb, c = two
+    r = post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 2}, {"product_id": pb.id, "quantity": 1, "price": "80"}],
+                                           "paid": "280", "payment_method": "pix"})
+    page = client.get(r.get_json()["redirect"]).get_data(as_text=True)
+    assert "Margem desta venda" in page and "Só você vê" in page
+    assert "R$ 120,00" in page and "R$ 60,00" in page          # vestido: 200-80 ; brinco vendido a 80: 80-20
+    prod = client.get(f"/produtos/{pa.id}").get_data(as_text=True)
+    assert "Lucro até hoje" in prod and "R$ 120,00" in prod and "60,0%" in prod
+    lst = client.get("/produtos").get_data(as_text=True)
+    assert "Margem" in lst and "R$ 60,00" in lst
+    form = client.get("/produtos/novo").get_data(as_text=True)
+    assert "Quanto custou pra você" in form and "product-form.js" in form
+    api = client.get("/api/produtos").get_json()
+    assert {p["name"]: p["cost_cents"] for p in api} == {"Vestido": 4000, "Brinco": 2000}
+
+
+def test_margin_is_private_and_absent_from_cancelled_sale(client, db, two):
+    ana, bia, pa, pb, c = two
+    r = post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}], "paid": "100", "payment_method": "pix"})
+    url = r.get_json()["redirect"]
+    post(client, url + "/cancelar", {"reason": "teste"})
+    assert "Margem desta venda" not in client.get(url).get_data(as_text=True)

@@ -30,6 +30,15 @@
     return { cents: c, ok: true };
   }
   function total() { return Math.max(subtotal() - discount().cents, 0); }
+  // margem prevista: só dos itens com custo informado, com o desconto rateado (mesma conta do servidor)
+  function margin() {
+    var sub = subtotal(), tot = total(), rev = 0, cost = 0, none = 0;
+    state.cart.forEach(function (i) {
+      if (!i.cost) { none += 1; return; }
+      rev += sub ? (i.qty * linePrice(i)) * tot / sub : 0; cost += i.qty * i.cost;
+    });
+    return { amount: Math.round(rev - cost), pct: rev > 0 ? (rev - cost) * 100 / rev : null, none: none };
+  }
   function paidNow() {
     if (state.mode === "full") return total();
     if (state.mode === "later") return 0;
@@ -67,7 +76,7 @@
       if (line.qty >= line.stock) { flash("Só há " + line.stock + " " + line.unit + " de “" + line.name + "” em estoque."); }
       else line.qty += 1;
     } else {
-      state.cart.push({ id: p.id, name: p.name, unit: p.unit, list: p.price_cents, price: null, qty: 1, stock: p.stock });
+      state.cart.push({ id: p.id, name: p.name, unit: p.unit, list: p.price_cents, cost: p.cost_cents || 0, price: null, qty: 1, stock: p.stock });
     }
     $("product-search").value = ""; loadProducts();
     if (phone.matches) $("product-search").blur(); else $("product-search").focus();  // no celular, o teclado não deve cobrir o carrinho
@@ -146,6 +155,12 @@
     var d = discount();
     $("t-subtotal").textContent = Money.format(subtotal());
     $("t-total").textContent = Money.format(total());
+    var m = margin(), ml = $("margin-line");
+    ml.hidden = state.cart.length === 0 || m.pct === null;
+    if (!ml.hidden) {
+      $("t-margin").textContent = Money.format(m.amount) + " (" + m.pct.toFixed(1).replace(".", ",") + "%)" + (m.none ? " · " + m.none + " sem custo" : "");
+      $("t-margin").className = "money " + (m.amount < 0 ? "owe-late" : "in-money");
+    }
     $("discount").classList.toggle("invalid", !d.ok);
     $("finish").disabled = state.cart.length === 0;
     $("finish").textContent = state.cart.length ? "Concluir venda · " + Money.format(total()) : "Concluir venda";

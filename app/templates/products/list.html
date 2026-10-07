@@ -23,12 +23,14 @@
   {% macro th(label, key, cls='') %}{% set cur = args.get('ordem','nome') == key %}{% set nxt = 'desc' if cur and args.get('dir','asc') == 'asc' else 'asc' %}
     <th class="{{ cls }}" {% if cur %}aria-sort="{{ 'ascending' if args.get('dir','asc') == 'asc' else 'descending' }}"{% endif %}><a href="{{ qs(ordem=key, dir=nxt, pagina=None) }}">{{ label }}{{ ' ▲' if cur and args.get('dir','asc') == 'asc' else (' ▼' if cur else '') }}</a></th>{% endmacro %}
   <div class="table-wrap"><table class="cards">
-    <thead><tr>{{ th('Produto','nome') }}{{ th('Código','codigo') }}{% if owners %}<th>Pessoa</th>{% endif %}<th>Categoria</th>{{ th('Preço','preco','right') }}{{ th('Estoque','estoque','right') }}<th></th></tr></thead>
+    <thead><tr>{{ th('Produto','nome') }}{{ th('Código','codigo') }}{% if owners %}<th>Pessoa</th>{% endif %}<th>Categoria</th>{{ th('Preço','preco','right') }}<th class="right">Custo</th><th class="right">Margem</th>{{ th('Estoque','estoque','right') }}<th></th></tr></thead>
     <tbody>{% for p in page.items %}
     <tr class="row-link" data-href="{{ url_for('products.detail', product_id=p.id) }}">
       <td><a href="{{ url_for('products.detail', product_id=p.id) }}">{{ p.name }}</a>{% if not p.active %} <span class="badge inativo">Inativo</span>{% endif %}</td>
       <td class="muted">{{ p.code }}</td>{% if owners %}<td>{% if p.owner %}<span class="owner-tag">{{ p.owner.name }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}<td>{{ p.category.name if p.category else '—' }}</td>
       <td class="right money">{{ p.price_cents|brl }}</td>
+      <td class="right money">{{ p.cost_cents|brl if p.cost_cents else '—' }}</td>
+      <td class="right money">{% if p.cost_cents %}<span class="{{ 'owe-late' if p.margin_cents < 0 else '' }}">{{ p.margin_cents|brl }}</span><span class="margin-pct">{{ p.margin_percent|string|replace('.', ',') }}%</span>{% else %}<span class="badge baixo">sem custo</span>{% endif %}</td>
       <td class="right num">{{ p.stock_qty|qtd }} {{ p.unit }}</td>
       <td class="right">{% if p.stock_qty == 0 %}<span class="badge zerado">Acabou</span>{% elif p.low_stock %}<span class="badge baixo">Baixo</span>{% endif %}</td></tr>
     {% endfor %}</tbody></table></div>

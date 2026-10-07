@@ -61,6 +61,13 @@ class Product(Base):
     def margin_cents(self) -> int:
         return self.price_cents - self.cost_cents
 
+    @property
+    def margin_percent(self) -> float | None:
+        """Margem sobre o preço de venda, em %. None quando não dá para calcular."""
+        if self.price_cents <= 0 or self.cost_cents <= 0:
+            return None
+        return round(self.margin_cents * 100 / self.price_cents, 1)
+
 
 MOVEMENT_KINDS = {
     "inicial": "Estoque inicial",

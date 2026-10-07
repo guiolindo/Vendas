@@ -102,6 +102,7 @@ p { margin: 0; }
 .ledger .alert .value { color: var(--bad); }
 .ledger .alert .label, .ledger .alert .sub { color: #7f2a20; }
 .ledger .in .value { color: var(--ok); }
+.warn-note { color: var(--warn) !important; }
 .ledger.compact { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 1rem; }
 
 /* ───────────── Botões e formulários ───────────── */
@@ -215,6 +216,13 @@ tr.row-link { cursor: pointer; }
 .owner-filter { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .75rem; }
 .owner-filter .chip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
 
+.margin-preview { margin: .25rem 0 .5rem; padding: .6rem .8rem; border-radius: var(--radius); background: var(--sunken); font-size: .875rem; font-weight: 600; }
+.margin-preview.gain { background: var(--ok-soft); color: #1f5536; }
+.margin-preview.loss { background: var(--bad-soft); color: #7f2a20; }
+.margin-preview.none { color: var(--ink-2); font-weight: 400; }
+.margin-pct { display: block; font-size: .75rem; color: var(--ink-3); font-weight: 400; }
+.private { border-left: 3px solid var(--ink-3); }
+
 /* ───────────── Avisos ───────────── */
 .toasts { position: fixed; top: 1rem; right: 1rem; z-index: 50; display: grid; gap: .5rem; width: min(26rem, calc(100vw - 2rem)); }
 .toast { padding: .75rem 1rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); border-left-width: 4px; box-shadow: 0 6px 18px rgba(28,38,34,.14); display: flex; justify-content: space-between; gap: 1rem; }
@@ -259,6 +267,7 @@ tr.row-link { cursor: pointer; }
 .icon-btn:hover { background: var(--bad-soft); color: var(--bad); }
 .totals { display: grid; gap: .35rem; }
 .totals .line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.totals .margin-line { font-size: .875rem; }
 .totals .grand { font-size: 1.75rem; font-weight: 700; letter-spacing: -.02em; border-top: 1px solid var(--line); padding-top: .6rem; margin-top: .35rem; }
 .totals .discount-ctl { display: inline-flex; gap: .35rem; }
 .totals .discount-ctl input { width: 6rem; min-height: 2rem; text-align: right; }
