@@ -102,7 +102,7 @@
       {% else %}<div class="empty">Ainda não há vendas neste mês.</div>{% endif %}
     </section>
 
-    <section class="panel">
+    {% if tracks_stock %}<section class="panel">
       <header><h2>Estoque acabando</h2><a href="{{ url_for('products.index', estoque='baixo') }}" class="small">Ver produtos</a></header>
       {% if d.low_stock %}
       <div class="table-wrap"><table><tbody>{% for p in d.low_stock %}
@@ -111,7 +111,7 @@
               <span class="sub">mínimo {{ p.min_stock }}</span></td></tr>
       {% endfor %}</tbody></table></div>
       {% else %}<div class="empty">Nenhum produto abaixo do mínimo.</div>{% endif %}
-    </section>
+    </section>{% endif %}
 
     {% if not chosen %}<section class="panel">
       <header><h2>Últimos recebimentos</h2></header>

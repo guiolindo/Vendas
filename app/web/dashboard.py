@@ -18,7 +18,10 @@ def index():
     session["painel"] = str(chosen.id) if chosen else "geral"
     today = clock.today()
     d = dashboard.build_for_owner(db(), today, chosen.id) if chosen else dashboard.build(db(), today)
-    return render_template("dashboard.html", d=d, people=people, chosen=chosen,
+    from sqlalchemy import exists, select
+    from ..models import Product
+    tracks_stock = bool(db().scalar(select(exists().where(Product.track_stock.is_(True), Product.active.is_(True)))))
+    return render_template("dashboard.html", d=d, people=people, chosen=chosen, tracks_stock=tracks_stock,
                            start=None if chosen else _getting_started(people))
 
 
