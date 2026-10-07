@@ -376,3 +376,35 @@ def test_search_engines_are_told_to_stay_away(app, client):
     anon = app.test_client()
     r = anon.get("/robots.txt")
     assert r.status_code == 200 and "Disallow: /" in r.get_data(as_text=True)
+
+
+def test_every_route_requires_login_except_the_explicit_public_list(app, db):
+    """Rota nova esquecida sem login é o erro mais comum. Este teste varre TODAS as rotas existentes."""
+    make_user(db)  # com usuários cadastrados, o sistema exige login (sem usuário, redireciona ao cadastro)
+    public = {"/entrar", "/configurar", "/saude", "/robots.txt", "/manifest.webmanifest", "/favicon.ico"}
+    anon = app.test_client()
+    checked = 0
+    for rule in app.url_map.iter_rules():
+        if rule.endpoint == "static" or rule.rule in public:
+            continue
+        url = rule.rule
+        for arg in rule.arguments:
+            url = url.replace(f"<int:{arg}>", "1").replace(f"<{arg}>", "vendas")
+        for method in sorted(rule.methods - {"HEAD", "OPTIONS"}):
+            r = anon.open(url, method=method, data={"csrf_token": "x"} if method == "POST" else None)
+            assert r.status_code in (302, 400, 401, 405), (method, rule.rule, r.status_code)
+            if r.status_code == 302:
+                assert "/entrar" in r.headers["Location"] or r.headers["Location"].endswith("/entrar"), (method, rule.rule)
+            body = r.get_data(as_text=True)
+            assert "Vendido hoje" not in body and "Venda #" not in body, (method, rule.rule)
+            checked += 1
+    assert checked >= 40  # garante que a varredura realmente percorreu as rotas
+
+
+def test_public_routes_expose_nothing_sensitive(app, db):
+    make_user(db)
+    anon = app.test_client()
+    for url in ("/entrar", "/saude", "/robots.txt", "/manifest.webmanifest"):
+        body = anon.get(url).get_data(as_text=True)
+        for secret in ("password_hash", "scrypt:", "SECRET_KEY", "DATABASE_URL", "Traceback"):
+            assert secret not in body, (url, secret)
