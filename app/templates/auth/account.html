@@ -5,9 +5,12 @@
 <form method="post" class="panel form-narrow" autocomplete="off"><header><h2>Trocar senha</h2></header><div class="body">
   {{ csrf() }}
   <div class="field"><label for="current">Senha atual</label><input id="current" name="current" type="password" autocomplete="current-password" required></div>
-  <div class="field"><label for="new">Nova senha <span class="hint">(8 ou mais, com letra e número)</span></label><input id="new" name="new" type="password" autocomplete="new-password" required></div>
+  <div class="field"><label for="new">Nova senha</label><input id="new" name="new" type="password" autocomplete="new-password" required minlength="8" aria-describedby="pw-rules">
+    <ul class="pw-rules" id="pw-rules" aria-live="polite"><li class="pw-title">A senha precisa ter:</li>
+    <li data-rule="len">8 caracteres ou mais</li><li data-rule="letter">pelo menos uma letra</li><li data-rule="digit">pelo menos um número</li></ul></div>
   <div class="field"><label for="new2">Repita a nova senha</label><input id="new2" name="new2" type="password" autocomplete="new-password" required></div>
   <p class="help">Ao trocar, todos os outros aparelhos conectados são desconectados.</p>
   <div class="form-foot"><button class="btn primary" type="submit">Trocar senha</button></div>
 </div></form>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/password-rules.js') }}"></script>{% endblock %}

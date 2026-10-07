@@ -11,7 +11,9 @@
     <p class="help">É o código que foi definido ao publicar o sistema (variável VENDAS_SETUP_TOKEN).</p></div>{% endif %}
   <div class="field"><label for="n">Seu nome</label><input id="n" name="name" autofocus required></div>
   <div class="field"><label for="u">Usuário para entrar</label><input id="u" name="username" autocomplete="username" required></div>
-  <div class="field"><label for="p">Senha <span class="hint">(8 ou mais, com letra e número)</span></label><input id="p" name="password" type="password" autocomplete="new-password" required></div>
+  <div class="field"><label for="p">Senha </label><input id="p" name="password" type="password" autocomplete="new-password" required minlength="8" aria-describedby="pw-rules">
+    <ul class="pw-rules" id="pw-rules" aria-live="polite"><li class="pw-title">A senha é obrigatória e precisa ter:</li>
+    <li data-rule="len">8 caracteres ou mais</li><li data-rule="letter">pelo menos uma letra</li><li data-rule="digit">pelo menos um número</li></ul></div>
   <div class="field"><label for="p2">Repita a senha</label><input id="p2" name="password2" type="password" autocomplete="new-password" required></div>
   <div class="field"><label for="biz">Nome do seu negócio <span class="hint">(opcional; aparece no comprovante)</span></label>
     <input id="biz" name="business_name" maxlength="80"></div>
@@ -25,4 +27,4 @@
     <input id="p1" name="person1" maxlength="80" placeholder="Nome da primeira pessoa" style="margin-bottom:.5rem">
     <input id="p3" name="person2" maxlength="80" placeholder="Nome da segunda pessoa"></div>
   <button class="btn primary" style="width:100%" type="submit">Criar e entrar</button>
-</form></div></body></html>
+</form></div><script src="{{ url_for('static', filename='js/password-rules.js') }}"></script></body></html>

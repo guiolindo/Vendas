@@ -163,3 +163,13 @@ def test_icon_only_buttons_have_names(client):
     js = open("app/static/js/sale.js").read()
     assert re.findall(r'aria-label="Remover', js) and re.findall(r'aria-label="Diminuir', js) and re.findall(r'aria-label="Aumentar', js)
     assert 'aria-label="Buscar produto"' in page and 'aria-label="Tipo de desconto"' in page
+
+
+def test_password_rules_are_visible_before_typing(tmp_path):
+    from app import create_app
+    app = create_app({"DATABASE_URL": f"sqlite:///{tmp_path/'p.db'}", "TESTING": True, "SECRET_KEY": "k"})
+    page = app.test_client().get("/configurar").get_data(as_text=True)
+    for text in ("A senha é obrigatória e precisa ter", "8 caracteres ou mais", "pelo menos uma letra", "pelo menos um número"):
+        assert text in page
+    assert 'minlength="8"' in page and "password-rules.js" in page
+    app.extensions["database"].dispose()
