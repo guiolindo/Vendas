@@ -157,3 +157,10 @@ a { color: inherit; }
   .r-stamp { background: transparent; }
   .r-items tr, .r-payments tr, .r-totals { break-inside: avoid; }
 }
+
+/* Pix: a chave fica grande e fácil de copiar ou digitar */
+.r-pix { margin-top: 8mm; padding: 4mm 5mm; border: 1px solid var(--ink); break-inside: avoid; }
+.r-pix .r-label { margin-bottom: 1mm; }
+.r-pix-key { display: block; font: 700 13pt/1.25 var(--mono, ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace); letter-spacing: .02em; word-break: break-all; }
+.r-pix-meta { display: block; margin-top: 1mm; font-size: 9pt; color: var(--muted); }
+.termico .r-pix { margin-top: 4mm; padding: 2.5mm 3mm; } .termico .r-pix-key { font-size: 10.5pt; } .termico .r-pix-meta { font-size: 8pt; }

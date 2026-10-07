@@ -64,6 +64,10 @@ No primeiro acesso o sistema pergunta se você quer controlar o estoque. A respo
 - **Com controle:** cada venda baixa a quantidade (nunca fica negativa, nem com duas vendas ao mesmo tempo) e o sistema avisa quando chegar ao mínimo.
 - Ligar o controle depois: o estoque começa com o que estiver registrado (zero); lance a quantidade em "Contei e o número é outro". Vendas antigas, feitas sem controle, não devolvem estoque se forem canceladas.
 
+## Pix no comprovante
+
+Em **Configurações**, preencha a **chave Pix** (e, se quiser, o nome de quem recebe). O comprovante da venda e o recibo de pagamento passam a mostrar um quadro "Pagar por Pix" com a chave e o valor que ainda falta, em A4 e em bobina de 80 mm. Venda quitada ou cancelada não mostra o quadro. O sistema só exibe a chave: não gera QR Code nem confere se a chave existe.
+
 ## Custo, compras e o que dá para editar ou excluir
 
 **Mudar o custo (ou o preço) vale só daqui pra frente.** Cada item vendido guarda uma cópia do custo e do preço do momento da venda; painéis, gráficos, relatórios e a margem de cada venda leem essa cópia. Por isso mudar o custo **não altera nenhuma estatística do passado** (há testes que provam isso em painel, gráficos e relatórios). Cada mudança de custo fica no *Histórico de custo* do produto (cadastro, edição, compra, compra excluída).

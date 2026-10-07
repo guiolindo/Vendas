@@ -15,6 +15,8 @@ FIELDS = {
     "phone": ("Telefone ou WhatsApp", 40, ""),
     "address": ("Endereço", 160, ""),
     "social": ("Instagram ou e-mail", 80, ""),
+    "pix_key": ("Chave Pix para receber", 77, ""),
+    "pix_name": ("Nome de quem recebe o Pix", 40, ""),
     "thanks": ("Mensagem de agradecimento", 160, "Obrigado pela preferência!"),
 }
 DEFAULT_NAME = FIELDS["business_name"][2]

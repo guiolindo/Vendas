@@ -1,0 +1,6 @@
+{# Como pagar o que falta. `pix_amount` vem de quem inclui. #}
+<section class="r-pix" aria-label="Pagar por Pix">
+  <span class="r-label">Pagar por Pix</span>
+  <strong class="r-pix-key">{{ cfg.pix_key }}</strong>
+  <span class="r-pix-meta">{% if cfg.pix_name %}{{ cfg.pix_name }} · {% endif %}valor {{ pix_amount|brl }}</span>
+</section>

@@ -20,4 +20,5 @@
 </section>
 {% if p.note %}<p class="r-note"><span class="r-label">Observação</span>{{ p.note }}</p>{% endif %}
 {% if balance_after > 0 and sale.due_date %}<p class="r-note">O que falta vence em <strong>{{ sale.due_date|data }}</strong>.</p>{% endif %}
+{% if cfg.pix_key and balance_after > 0 and not sale.cancelled %}{% set pix_amount = balance_after %}{% include "receipt/_pix.html" %}{% endif %}
 {% endblock %}

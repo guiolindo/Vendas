@@ -43,6 +43,8 @@
 {% if sale.cancelled %}<p class="r-note"><strong>Venda cancelada</strong> em {{ sale.cancelled_at|hora }}. {{ sale.cancel_reason }}</p>{% endif %}
 {% if sale.notes %}<p class="r-note"><span class="r-label">Observações</span>{{ sale.notes }}</p>{% endif %}
 
+{% if cfg.pix_key and sale.remaining_cents > 0 and not sale.cancelled %}{% set pix_amount = sale.remaining_cents %}{% include "receipt/_pix.html" %}{% endif %}
+
 {% if sale.remaining_cents > 0 and sale.customer and not sale.cancelled %}
 <section class="r-sign" aria-label="Reconhecimento da dívida">
   <p>Reconheço dever <strong>{{ sale.remaining_cents|brl }}</strong>{% if sale.due_date %}, a pagar até <strong>{{ sale.due_date|data }}</strong>{% endif %}.</p>

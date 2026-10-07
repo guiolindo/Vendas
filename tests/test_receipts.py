@@ -161,3 +161,28 @@ def test_receipt_page_is_standalone_and_script_free_of_inline_code(client, shop)
     assert "<nav class=\"nav\"" not in page and "tabbar" not in page                        # sem menu do sistema: é uma folha de papel
     assert not re.search(r"<script(?![^>]*\bsrc=)", page) and not re.search(r"\son(click|load)=", page)
     assert 'name="robots" content="noindex' in page
+
+
+def test_pix_key_appears_only_when_something_is_left_to_pay(client, db, shop):
+    post(client, "/configuracoes", {"business_name": "Loja", "pix_key": "11.222.333/0001-44", "pix_name": "Loja da Ana"})
+    open_id = make_sale(client, shop)                                              # falta pagar R$ 267,00
+    page = client.get(f"/vendas/{open_id}/comprovante").get_data(as_text=True)
+    assert "Pagar por Pix" in page and "11.222.333/0001-44" in page and "Loja da Ana" in page and "R$ 267,00" in page
+    thermal = client.get(f"/vendas/{open_id}/comprovante?formato=termico").get_data(as_text=True)
+    assert "11.222.333/0001-44" in thermal
+    paid_id = make_sale(client, shop, paid="367", due=False)                        # quitada: não pede Pix
+    assert "Pagar por Pix" not in client.get(f"/vendas/{paid_id}/comprovante").get_data(as_text=True)
+    db.rollback()
+    from app.models import Payment
+    pay_id = db.query(Payment).filter_by(sale_id=open_id).one().id
+    assert "11.222.333/0001-44" in client.get(f"/pagamentos/{pay_id}/recibo").get_data(as_text=True)
+
+
+def test_without_pix_key_nothing_changes_and_key_is_escaped(client, db, shop):
+    sid = make_sale(client, shop)
+    assert "Pagar por Pix" not in client.get(f"/vendas/{sid}/comprovante").get_data(as_text=True)
+    post(client, "/configuracoes", {"business_name": "Loja", "pix_key": "<b>x</b>"})
+    page = client.get(f"/vendas/{sid}/comprovante").get_data(as_text=True)
+    assert "&lt;b&gt;x&lt;/b&gt;" in page and "<b>x</b>" not in page
+    r = post(client, "/configuracoes", {"business_name": "Loja", "pix_key": "x" * 78})
+    assert r.status_code == 422
