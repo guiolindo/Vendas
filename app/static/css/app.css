@@ -407,7 +407,7 @@ tr.void td:last-child, tr.void td .badge { text-decoration: none; }
   .crumb { padding-right: 1rem; margin-bottom: 0; }
   .chip { min-height: 2.75rem; }
   .help .link-button { min-height: 2.75rem; }
-  td a:not(.btn) { display: inline-block; padding: .35rem 0; }
+  td a:not(.btn), .warn-note a, .page-head p a { display: inline-block; padding: .45rem 0; }
   .ledger a { min-height: 2.75rem; }
 
   /* painel: o que está atrasado vem primeiro, em largura total */
