@@ -15,7 +15,7 @@ from ..domain.money import MAX_CENTS, format_brl, percent_of
 from ..domain.payment_methods import METHODS
 from ..domain.text import limited
 from ..errors import BusinessError, NotFound
-from ..models import Customer, Payment, Product, Sale, SaleItem
+from ..models import Customer, Payment, Product, Sale, SaleItem, StockMovement
 from .stock import MAX_QTY, apply_movement
 
 
@@ -204,6 +204,30 @@ def update_sale(session: Session, sale_id: int, customer_id: int | None, due_dat
         sale.due_date = due_date
         sale.notes = (notes or "").strip() or None
     return sale
+
+
+def delete_sale(session: Session, sale_id: int) -> str:
+    """Exclui DEFINITIVAMENTE uma venda que já foi cancelada (limpeza de lançamento errado ou de teste).
+
+    Exige o cancelamento antes: é ele que devolve o estoque e estorna os pagamentos de forma registrada.
+    Como a venda cancelada já não conta em nenhum painel ou relatório, excluí-la só tira a linha da lista.
+    Devolve um resumo, que quem chamou grava na trilha de auditoria."""
+    with atomic(session):
+        sale = session.get(Sale, sale_id, with_for_update=True)
+        if sale is None:
+            raise NotFound("Venda não encontrada.")
+        if not sale.cancelled:
+            raise BusinessError("Só dá para excluir uma venda que já foi cancelada. Cancele primeiro: assim o estoque volta e "
+                                "os pagamentos são estornados de forma registrada.")
+        summary = (f"#{sale.id} total={sale.total_cents} itens={len(sale.items)} pagamentos={len(sale.payments)} "
+                   f"cliente={sale.customer.name if sale.customer else 'consumidor'} motivo={sale.cancel_reason}")[:255]
+        for movement in session.scalars(select(StockMovement).where(StockMovement.sale_id == sale_id)):
+            session.delete(movement)      # a saída da venda e a devolução do cancelamento se anulam: o estoque não muda
+        for payment in list(sale.payments):
+            session.delete(payment)
+        session.flush()
+        session.delete(sale)               # os itens vão junto
+    return summary
 
 
 def cancel_sale(session: Session, sale_id: int, reason: str, user_id: int | None = None) -> Sale:

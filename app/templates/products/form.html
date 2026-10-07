@@ -15,8 +15,8 @@
     {% if product %}<p class="help">Trocar o dono vale só para as próximas vendas; as antigas continuam com quem vendeu.</p>{% endif %}</div>
   {% endif %}
   <div class="grid" data-margin-form>
-    {{ money_field('Quanto custou pra você', 'cost', v, error_field, (product.cost_cents|brl_plain) if product else '', help='O que você pagou pelo produto. É com isso que o sistema calcula a sua margem.') }}
-    {{ money_field('Preço de venda', 'price', v, error_field, (product.price_cents|brl_plain) if product else '', required=true) }}
+    {{ money_field('Quanto custou pra você', 'cost', v, error_field, (product.cost_cents|brl_plain) if product else '', help=('Se mudar, vale só para as próximas vendas. As vendas já feitas continuam com o custo da época.' if product else 'O que você pagou pelo produto. É com isso que o sistema calcula a sua margem.')) }}
+    {{ money_field('Preço de venda', 'price', v, error_field, (product.price_cents|brl_plain) if product else '', required=true, help=('Vale só para as próximas vendas.' if product else '')) }}
     {% if not product %}{{ field('Estoque inicial', 'initial_stock', v, error_field, '', type='number', placeholder='0', attrs='min="0" inputmode="numeric"') }}{% endif %}
   </div>
   <p class="margin-preview" id="margin-preview" aria-live="polite" hidden></p>

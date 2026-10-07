@@ -32,6 +32,15 @@ def rename(owner_id: int):
     return redirect(url_for("owners.index"))
 
 
+@bp.post("/<int:owner_id>/excluir")
+@handle_business_errors
+def delete(owner_id: int):
+    name = svc.delete_owner(db(), owner_id)
+    audit_event("pessoa_excluida", name)
+    flash(f"{name} excluída.", "success")
+    return redirect(url_for("owners.index"))
+
+
 @bp.post("/<int:owner_id>/ativo")
 @handle_business_errors
 def toggle(owner_id: int):

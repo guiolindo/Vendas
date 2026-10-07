@@ -104,12 +104,13 @@ from .test_web import app, client, db, post_json  # noqa: E402,F401  (fixtures)
 
 @pytest.fixture
 def web_world(client, db):
+    from app.services import customers as csvc
     ana, bia = own.create_owner(db, "Ana"), own.create_owner(db, "Bia")
     pa = pvc.create_product(db, pvc.ProductInput(name="Vestido <b>", price_cents=10000, cost_cents=4000, initial_stock=50, owner_id=ana.id))
     pb = pvc.create_product(db, pvc.ProductInput(name="Brinco", price_cents=5000, cost_cents=2000, initial_stock=50, owner_id=bia.id))
-    post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}, {"product_id": pb.id, "quantity": 2}], "paid": "100", "payment_method": "pix",
-                                       "customer_id": None if False else __import__("app.services.customers", fromlist=["x"]).create_customer(
-                                           db, __import__("app.services.customers", fromlist=["x"]).CustomerInput(name="Cli")).id,
+    cliente = csvc.create_customer(db, csvc.CustomerInput(name="Cli"))
+    post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}, {"product_id": pb.id, "quantity": 2}], "paid": "100",
+                                       "payment_method": "pix", "customer_id": cliente.id,
                                        "due_date": (TODAY + timedelta(days=3)).isoformat()})
     return ana, bia
 

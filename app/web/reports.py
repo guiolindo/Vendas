@@ -17,7 +17,7 @@ def index():
 
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-PACKAGE = ("pessoas", "vendas", "recebimentos", "a-receber", "produtos", "margem-produtos", "estoque", "clientes")
+PACKAGE = ("pessoas", "vendas", "recebimentos", "a-receber", "produtos", "margem-produtos", "compras", "estoque", "clientes")
 
 
 @bp.get("/pacote")
@@ -40,7 +40,7 @@ def show(key: str):
     f = Form(request.args)
     today = clock.today()
     d_from, d_to = f.date("de", "De"), f.date("ate", "Até")
-    if "de" not in request.args and "ate" not in request.args and key in ("vendas", "produtos", "recebimentos", "movimento", "pessoas"):
+    if "de" not in request.args and "ate" not in request.args and key in ("vendas", "produtos", "recebimentos", "movimento", "pessoas", "compras"):
         d_from, d_to = today.replace(day=1), today  # padrão: mês atual
     params = svc.ReportParams(d_from, d_to, f.optional_int("cliente"), None, f.optional_int("pessoa"), f.text("situacao"), f.text("ordem"))
     report = svc.build(db(), key, params, today)

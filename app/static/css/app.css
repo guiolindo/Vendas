@@ -228,8 +228,14 @@ tr.row-link { cursor: pointer; }
 .margin-preview.gain { background: var(--ok-soft); color: #1f5536; }
 .margin-preview.loss { background: var(--bad-soft); color: #7f2a20; }
 .margin-preview.none { color: var(--ink-2); font-weight: 400; }
+.stock-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stock-form .check, .stock-form > button { grid-column: 1 / -1; }
+@media (max-width: 520px) { .stock-form { grid-template-columns: minmax(0, 1fr); } }
+.check { display: flex; gap: .5rem; align-items: flex-start; font-weight: 400; margin: -.25rem 0 .875rem; }
+.check input { margin-top: .3rem; }
 .margin-pct { display: block; font-size: .75rem; color: var(--ink-3); font-weight: 400; }
 .private { border-left: 3px solid var(--ink-3); }
+.redo-note { margin-bottom: 1rem; padding: .75rem 1rem; border-radius: var(--radius); background: var(--primary-soft); color: var(--primary-strong); border: 1px solid #b9d6d5; }
 
 /* ───────────── Gráficos ───────────── */
 .chart-filters { display: flex; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }

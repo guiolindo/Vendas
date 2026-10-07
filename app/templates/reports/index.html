@@ -8,7 +8,7 @@
     <div class="field"><label for="ate">Até</label><input id="ate" type="date" name="ate" value="{{ today|iso }}"></div>
     <button class="btn primary" type="submit">{{ icon('download') }} Baixar Excel com tudo</button>
   </form>
-  <p class="help" style="margin-top:.5rem">Um arquivo só, com uma aba para cada relatório: resultado por pessoa, vendas, recebimentos, a receber, produtos, margem, estoque e clientes.</p></div></section>
+  <p class="help" style="margin-top:.5rem">Um arquivo só, com uma aba para cada relatório: resultado por pessoa, vendas, recebimentos, a receber, produtos, margem, compras, estoque e clientes.</p></div></section>
 <section class="panel"><div class="table-wrap"><table><tbody>
   {% for key, (title, desc) in catalog.items() %}
   <tr class="row-link" data-href="{{ url_for('reports.show', key=key) }}"><td style="width:18rem"><a href="{{ url_for('reports.show', key=key) }}"><strong>{{ title }}</strong></a></td><td class="muted">{{ desc }}</td></tr>

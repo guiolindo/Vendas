@@ -5,9 +5,11 @@
 <div class="page-head"><div><a class="crumb back-mobile" href="{{ url_for('dashboard.index') }}">‹ Voltar</a><h1>Nova venda</h1></div>
   <div class="kbd-hints no-print"><span><kbd>/</kbd> buscar produto</span><span><kbd>Enter</kbd> adiciona</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> concluir</span></div></div>
 
+{% if prefill %}<div class="redo-note" role="status"><strong>Refazendo a venda #{{ prefill.number }}.</strong> Confira os itens e os preços, escolha o pagamento e conclua.
+  {% if prefill.skipped %}<br><span class="owe-soon">{{ prefill.skipped }} {{ 'item ficou' if prefill.skipped == 1 else 'itens ficaram' }} de fora (sem estoque ou produto inativo).</span>{% endif %}</div>{% endif %}
 <div class="pos" id="pos" data-token="{{ token }}" data-default-due="{{ default_due }}" data-today="{{ today|iso }}"
      data-api-products="{{ url_for('api.products') }}" data-api-customers="{{ url_for('api.customers') }}"
-     data-preselect="{{ request.args.get('cliente', '') }}">
+     data-preselect="{{ request.args.get('cliente', '') }}"{% if prefill %} data-prefill='{{ prefill|tojson }}'{% endif %}>
 
   <div class="pos-left">
     <section class="panel">

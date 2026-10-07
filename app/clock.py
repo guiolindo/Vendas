@@ -9,7 +9,9 @@ def today() -> date:
 
 
 def now() -> datetime:
-    return datetime.now().replace(microsecond=0)
+    real = datetime.now().replace(microsecond=0)
+    # nos testes, a data fixada vale também para os horários (a hora do dia continua a real)
+    return datetime.combine(_override, real.time()) if _override else real
 
 
 def set_today(value: date | None) -> None:

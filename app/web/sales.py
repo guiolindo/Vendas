@@ -40,8 +40,36 @@ def _date(raw):
 def new():
     import datetime
     from ..services import owners as owner_svc
-    return render_template("sales/new.html", token=uuid.uuid4().hex, owners=owner_svc.list_owners(db(), only_active=True),
+    prefill = _prefill(request.args.get("refazer", ""))
+    return render_template("sales/new.html", token=uuid.uuid4().hex, owners=owner_svc.list_owners(db(), only_active=True), prefill=prefill,
                            default_due=(clock.today() + datetime.timedelta(days=current_app.config["DEFAULT_DUE_DAYS"])).isoformat())
+
+
+def _prefill(raw: str) -> dict | None:
+    """Dados de uma venda CANCELADA para refazê-la na tela de venda. Itens inativos ou sem estoque ficam de fora (e são avisados)."""
+    if not raw.isdigit() or int(raw) >= 2**31:
+        return None
+    old = db().get(Sale, int(raw))
+    if old is None or not old.cancelled:
+        return None
+    items, skipped = [], 0
+    for it in old.items:
+        p = it.product
+        if not p.active or p.stock_qty <= 0:
+            skipped += 1
+            continue
+        items.append({"id": p.id, "name": p.name, "unit": p.unit, "code": p.code, "list": p.price_cents, "cost": p.cost_cents,
+                      "stock": p.stock_qty, "qty": min(it.quantity, p.stock_qty),
+                      "price": None if it.unit_price_cents == p.price_cents else it.unit_price_cents})
+    customer = None
+    if old.customer and old.customer.active:
+        from ..repositories import customers as customer_repo
+        row = customer_repo.summary(db(), old.customer_id, clock.today())
+        customer = {"id": old.customer_id, "name": old.customer.name, "phone": old.customer.phone or "",
+                    "pending_cents": row.pending, "overdue_cents": row.overdue}
+    return {"number": old.id, "items": items, "skipped": skipped, "customer": customer,
+            "discount": f"{old.discount_cents // 100},{old.discount_cents % 100:02d}" if old.discount_cents else "",
+            "notes": old.notes or ""}
 
 
 @bp.post("/vendas/nova")
@@ -109,6 +137,26 @@ def cancel(sale_id: int):
     audit_event("venda_cancelada", f"#{sale_id}")
     flash(f"Venda #{sale_id} cancelada. O estoque foi devolvido.", "success")
     return redirect(url_for("sales.detail", sale_id=sale_id))
+
+
+@bp.post("/vendas/<int:sale_id>/excluir")
+@handle_business_errors
+def delete(sale_id: int):
+    summary = svc.delete_sale(db(), sale_id)
+    audit_event("venda_excluida", summary)
+    flash(f"Venda #{sale_id} excluída definitivamente.", "success")
+    return redirect(url_for("sales.index"))
+
+
+@bp.post("/vendas/<int:sale_id>/corrigir")
+@handle_business_errors
+def fix(sale_id: int):
+    """Corrigir itens ou valores: cancela esta venda (estoque volta, pagamentos estornados) e abre a nova já preenchida."""
+    svc.cancel_sale(db(), sale_id, "Corrigida: refeita com os dados certos", current_user_id())
+    audit_event("venda_corrigida", f"#{sale_id}")
+    flash(f"Venda #{sale_id} cancelada para correção. Confira os itens abaixo e finalize de novo; "
+          "os pagamentos dela foram estornados e precisam ser lançados outra vez.", "info")
+    return redirect(url_for("sales.new", refazer=sale_id))
 
 
 @bp.post("/pagamentos/<int:payment_id>/estornar")

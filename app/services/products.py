@@ -10,6 +10,7 @@ from ..domain.text import limited
 from ..errors import BusinessError, NotFound
 from ..models import Category, Product, SaleItem, StockMovement
 from ..domain.money import MAX_CENTS
+from . import costs
 from .stock import MAX_QTY, apply_movement
 
 
@@ -96,7 +97,7 @@ def _check_unique(session: Session, code: str, sku: str | None, own_id: int | No
             raise BusinessError(f"Já existe um produto com o SKU “{sku}”.", field="sku")
 
 
-def _fill(session: Session, product: Product, data: ProductInput) -> None:
+def _fill(session: Session, product: Product, data: ProductInput, user_id: int | None = None) -> None:
     code = _clean(data.code) or product.code or _next_code(session)
     sku = _clean(data.sku)
     _check_unique(session, code, sku, product.id)
@@ -104,7 +105,11 @@ def _fill(session: Session, product: Product, data: ProductInput) -> None:
     product.sku = sku
     product.name = data.name.strip()
     product.price_cents = data.price_cents
-    product.cost_cents = data.cost_cents
+    new_product = product.id is None
+    if new_product:
+        product.cost_cents = 0                    # o cadastro entra no histórico de custo (abaixo), depois do flush
+    elif data.cost_cents != product.cost_cents:
+        costs.set_cost(session, product, data.cost_cents, "edição", user_id)   # só vale para as próximas vendas
     product.min_stock = data.min_stock
     product.unit = _clean(data.unit) or "un"
     product.description = _clean(data.description)
@@ -117,21 +122,24 @@ def create_product(session: Session, data: ProductInput, user_id: int | None = N
     _validate(data)
     with atomic(session):
         product = Product(code="", price_cents=0, name="")
-        _fill(session, product, data)
+        _fill(session, product, data, user_id)
         session.add(product)
         session.flush()
+        if data.cost_cents > 0:
+            costs.set_cost(session, product, data.cost_cents, "cadastro", user_id)
         if data.initial_stock > 0:
-            apply_movement(session, product.id, data.initial_stock, "inicial", user_id=user_id)
+            movement = apply_movement(session, product.id, data.initial_stock, "inicial", user_id=user_id)
+            movement.unit_cost_cents = data.cost_cents or None
     return product
 
 
-def update_product(session: Session, product_id: int, data: ProductInput) -> Product:
+def update_product(session: Session, product_id: int, data: ProductInput, user_id: int | None = None) -> Product:
     _validate(data)
     with atomic(session):
         product = session.get(Product, product_id)
         if product is None:
             raise NotFound("Produto não encontrado.")
-        _fill(session, product, data)
+        _fill(session, product, data, user_id)
     return product
 
 
@@ -155,6 +163,8 @@ def delete_product(session: Session, product_id: int) -> None:
             raise BusinessError(
                 "Este produto já foi vendido e não pode ser excluído. Desative-o para tirá-lo da lista de vendas."
             )
-        for movement in session.scalars(select(StockMovement).where(StockMovement.product_id == product_id)):
-            session.delete(movement)
+        for movement in session.scalars(select(StockMovement).where(StockMovement.product_id == product_id)
+                                        .order_by(StockMovement.id.desc())):
+            session.delete(movement)       # do mais novo ao mais antigo: o estorno aponta para a compra original
+            session.flush()
         session.delete(product)

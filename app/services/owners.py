@@ -65,6 +65,22 @@ def set_owner_active(session: Session, owner_id: int, active: bool) -> Owner:
     return owner
 
 
+def delete_owner(session: Session, owner_id: int) -> str:
+    """Só exclui quem nunca teve produto nem venda. Senão, desative: o histórico precisa continuar de pé."""
+    with atomic(session):
+        owner = session.get(Owner, owner_id)
+        if owner is None:
+            raise NotFound("Pessoa não encontrada.")
+        products = session.scalar(select(func.count()).select_from(Product).where(Product.owner_id == owner_id))
+        sold = session.scalar(select(func.count()).select_from(SaleItem).where(SaleItem.owner_id == owner_id))
+        if products or sold:
+            raise BusinessError(f"{owner.name} tem {products} produto(s) e {sold} item(ns) vendido(s) no histórico, então não pode ser "
+                                "excluída. Desative para que ela deixe de receber produtos novos.")
+        name = owner.name
+        session.delete(owner)
+    return name
+
+
 def list_owners(session: Session, only_active: bool = False) -> list[Owner]:
     query = select(Owner).order_by(Owner.name)
     if only_active:

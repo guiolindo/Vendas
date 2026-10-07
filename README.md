@@ -43,6 +43,25 @@ As tabelas são criadas automaticamente na primeira subida (com lock, então vá
 - **Excel**: valores, datas e percentuais são tipos do Excel (somam, filtram, ordenam); texto que começa com `=`, `+`, `-` ou `@` fica como texto (sem injeção de fórmula).
 - **Comprovante**: nunca mostra custo nem margem (testado). Mostra produtos, quem vendeu, pagamentos, saldo e vencimento, carimbo da situação e, em venda a prazo, a linha de assinatura do cliente. É um documento **sem valor fiscal**. Para PDF, use *Imprimir → Salvar como PDF* do navegador; a bobina declara a altura do papel conforme o conteúdo.
 
+## Custo, compras e o que dá para editar ou excluir
+
+**Mudar o custo (ou o preço) vale só daqui pra frente.** Cada item vendido guarda uma cópia do custo e do preço do momento da venda; painéis, gráficos, relatórios e a margem de cada venda leem essa cópia. Por isso mudar o custo **não altera nenhuma estatística do passado** (há testes que provam isso em painel, gráficos e relatórios). Cada mudança de custo fica no *Histórico de custo* do produto (cadastro, edição, compra, compra excluída).
+
+**Compras de mercadoria**: ao registrar a chegada de mercadoria dá para informar quanto custou cada unidade e, se quiser, usar esse valor como custo do produto dali em diante. A compra pode ser **excluída** (o registro fica no histórico, marcado) desde que ainda existam em estoque as unidades dela; se já foram vendidas, o sistema explica. Se a compra tinha mudado o custo e ninguém mexeu nele depois, excluí-la devolve o custo anterior. O relatório "Compras de mercadoria" lista e soma o que foi gasto.
+
+| Coisa | Editar | Excluir | Regra |
+|---|---|---|---|
+| Produto | tudo (custo e preço valem daqui pra frente) | só se nunca foi vendido | senão, desativar |
+| Compra de mercadoria | (lançar outra) | sim, se as unidades ainda estão em estoque | fica no histórico, marcada |
+| Venda | cliente, vencimento, observação; **itens e valores: "Corrigir e refazer"** | sim, **depois de cancelada** | o cancelamento devolve o estoque e estorna os pagamentos; a exclusão fica na auditoria |
+| Pagamento | (estornar e lançar de novo) | estorno (fica no histórico) | nunca some |
+| Cliente | tudo | só se não tem vendas | senão, desativar |
+| Pessoa | nome | só se não tem produto nem venda | senão, desativar |
+
+"Corrigir e refazer" cancela a venda e abre a tela de venda já preenchida (itens, preços combinados, cliente, desconto, observação); itens sem estoque ou inativos ficam de fora e são avisados. Os pagamentos da venda cancelada foram estornados e precisam ser lançados de novo.
+
+**Limite conhecido do custo:** cada produto tem um custo atual (não há custo por lote, como PEPS ou custo médio). O valor do estoque ("estoque ao custo atual") usa o custo atual para todas as unidades; por isso o rótulo diz "atual".
+
 ## Segurança
 
 Baseada na auditoria e nos pentests do projeto [Notas-despesas](https://github.com/guiolindo/Notas-despesas). O sistema **não abre nada sem login**.

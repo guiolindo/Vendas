@@ -75,6 +75,7 @@ MOVEMENT_KINDS = {
     "ajuste": "Ajuste de contagem",
     "venda": "Venda",
     "cancelamento": "Venda cancelada",
+    "estorno_compra": "Compra excluída",
 }
 
 
@@ -91,5 +92,36 @@ class StockMovement(Base):
     note: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(default=clock.now)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # Compra de mercadoria: quanto custou cada unidade nesta entrada (None = não informado)
+    unit_cost_cents: Mapped[int | None]
+    cost_updated: Mapped[bool] = mapped_column(default=False)      # esta compra atualizou o custo do produto?
+    cost_before_cents: Mapped[int | None]                          # custo do produto antes desta compra
+    # Compra excluída: o registro fica no histórico (como o pagamento estornado), marcado
+    voided_at: Mapped[datetime | None]
+    void_reason: Mapped[str | None] = mapped_column(String(255))
+    reverses_id: Mapped[int | None] = mapped_column(ForeignKey("stock_movements.id", ondelete="RESTRICT"))
 
     product: Mapped[Product] = relationship()
+
+    @property
+    def voided(self) -> bool:
+        return self.voided_at is not None
+
+    @property
+    def total_cost_cents(self) -> int | None:
+        return None if self.unit_cost_cents is None else self.quantity * self.unit_cost_cents
+
+
+class CostChange(Base):
+    """Histórico do custo de cada produto: o que mudou, quando, por quê e quem mudou.
+    As vendas já feitas NÃO mudam: cada item da venda guarda o custo da época."""
+
+    __tablename__ = "cost_changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    old_cents: Mapped[int | None]
+    new_cents: Mapped[int]
+    origin: Mapped[str] = mapped_column(String(30))  # cadastro | edição | compra | compra excluída
+    at: Mapped[datetime] = mapped_column(default=clock.now)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

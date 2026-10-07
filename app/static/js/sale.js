@@ -301,7 +301,13 @@
 
   // ── início
   $("due").value = pos.dataset.defaultDue;
-  loadDraft();
+  var prefill = null;
+  try { prefill = pos.dataset.prefill ? JSON.parse(pos.dataset.prefill) : null; } catch (e) {}
+  if (prefill) {  // refazer uma venda cancelada: começa já com os itens, o cliente, o desconto e a observação dela
+    state.cart = prefill.items.map(function (i) { return { id: i.id, name: i.name, unit: i.unit, list: i.list, cost: i.cost || 0, price: i.price, qty: i.qty, stock: i.stock }; });
+    state.customer = prefill.customer; state.mode = "full";
+    $("discount").value = prefill.discount || ""; $("notes").value = prefill.notes || "";
+  } else loadDraft();
   var radio = document.querySelector("input[name=mode][value=" + state.mode + "]"); if (radio) radio.checked = true;
   if (state.customer) setCustomer(state.customer);
   else if (pos.dataset.preselect) {

@@ -40,7 +40,7 @@ def test_receipt_shows_everything_the_customer_needs(client, shop):
     page = client.get(f"/vendas/{sid}/comprovante").get_data(as_text=True)
     for needle in ("Comprovante de venda", "Nº 000001", "Marina Souza", "(11) 91234-5678", "Vestido floral", "Vendido por", "Ana e Bia",
                    "R$ 367,00", "R$ 100,00", "R$ 267,00", "Pagamentos recebidos", "Pix", "Falta pagar", "Parcial", "Documento sem valor fiscal",
-                   "Reconheço dever", "Assinatura" if False else "Marina Souza", "Obrigado pela preferência!"):
+                   "Reconheço dever", "Obrigado pela preferência!"):
         assert needle in page, needle
     assert "Meu Negócio" in page and "Dica: coloque o nome" in page                       # antes de configurar: avisa
     assert 'class="sheet a4"' in page and "receipt.css" in page and "base.html" not in page

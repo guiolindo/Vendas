@@ -87,7 +87,28 @@
       </div>
     </section>
     {% endif %}
+    {% if sale.cancelled %}
+    <section class="panel">
+      <header><h2>Esta venda foi cancelada</h2></header>
+      <div class="body">
+        <p class="small muted" style="margin-bottom:.75rem">Cancelada, ela não conta em nenhum painel nem relatório. Se foi por engano ou precisa de ajuste, refaça; se foi só um lançamento errado, exclua.</p>
+        <div class="actions">
+          <a class="btn primary" href="{{ url_for('sales.new', refazer=sale.id) }}">Refazer esta venda</a>
+          <form method="post" action="{{ url_for('sales.delete', sale_id=sale.id) }}" class="inline-form" data-confirm="Excluir DEFINITIVAMENTE a venda #{{ sale.id }}? Ela some da lista e não dá para desfazer. Fica só um registro na auditoria.">{{ csrf() }}
+            <button class="btn danger" type="submit">{{ icon('trash') }} Excluir definitivamente</button></form>
+        </div>
+      </div>
+    </section>
+    {% endif %}
     {% if not sale.cancelled %}
+    <section class="panel">
+      <header><h2>Corrigir itens ou valores</h2></header>
+      <div class="body">
+        <form method="post" action="{{ url_for('sales.fix', sale_id=sale.id) }}" data-confirm="Cancelar a venda #{{ sale.id }} e abrir uma nova já preenchida? O estoque volta{% if sale.paid_cents %} e os {{ sale.paid_cents|brl }} pagos são estornados (você lança de novo){% endif %}.">{{ csrf() }}
+          <p class="help" style="margin-bottom:.75rem">Produto, quantidade ou preço errado? Cancela esta venda e abre a tela de venda já com tudo preenchido, para você só ajustar.{% if sale.paid_cents %} Os pagamentos serão estornados e precisam ser lançados de novo.{% endif %}</p>
+          <button class="btn" type="submit">Corrigir e refazer</button></form>
+      </div>
+    </section>
     <section class="panel">
       <header><h2>Cancelar venda</h2></header>
       <div class="body">

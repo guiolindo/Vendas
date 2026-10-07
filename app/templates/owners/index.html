@@ -13,7 +13,9 @@
           {% if not o.active %}<span class="badge inativo">Inativa</span>{% endif %}</td>
         <td class="right num"><a href="{{ url_for('products.index', dono=o.id) }}">{{ counts.get(o.id, 0) }}</a></td>
         <td class="right"><form method="post" action="{{ url_for('owners.toggle', owner_id=o.id) }}" class="inline-form">{{ csrf() }}
-          <input type="hidden" name="active" value="{{ '0' if o.active else '1' }}"><button class="link-button" type="submit">{{ 'Desativar' if o.active else 'Reativar' }}</button></form></td></tr>{% endfor %}</tbody></table></div>
+          <input type="hidden" name="active" value="{{ '0' if o.active else '1' }}"><button class="link-button" type="submit">{{ 'Desativar' if o.active else 'Reativar' }}</button></form>
+          {% if not counts.get(o.id, 0) %}<form method="post" action="{{ url_for('owners.delete', owner_id=o.id) }}" class="inline-form" data-confirm="Excluir {{ o.name }}? Isso não pode ser desfeito.">{{ csrf() }}
+            <button class="link-button danger" type="submit">Excluir</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
     {% else %}<div class="empty"><strong>Nenhuma pessoa cadastrada.</strong>Cadastre quem vende para dividir produtos e painéis.</div>{% endif %}
   </section>
   <section class="panel"><header><h2>Adicionar pessoa</h2></header><div class="body">

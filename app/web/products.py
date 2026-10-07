@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from ..errors import BusinessError
-from ..models import Product, Sale, SaleItem, StockMovement
+from ..models import CostChange, Product, Sale, SaleItem, StockMovement
 from ..repositories import products as repo
 from ..repositories.common import paginate
 from ..schemas.inputs import product_from_form
@@ -55,6 +55,11 @@ def detail(product_id: int):
         return redirect(url_for("products.index"))
     movements = list(db().scalars(select(StockMovement).where(StockMovement.product_id == product_id)
                                   .order_by(StockMovement.id.desc()).limit(30)))
+    cost_history = list(db().scalars(select(CostChange).where(CostChange.product_id == product_id)
+                                     .order_by(CostChange.id.desc()).limit(15)))
+    invested = db().scalar(select(func.coalesce(func.sum(StockMovement.quantity * StockMovement.unit_cost_cents), 0))
+                           .where(StockMovement.product_id == product_id, StockMovement.kind == "entrada",
+                                  StockMovement.voided_at.is_(None), StockMovement.unit_cost_cents.is_not(None)))
     sales = db().execute(
         select(SaleItem, Sale).join(Sale, Sale.id == SaleItem.sale_id).options(selectinload(Sale.customer))
         .where(SaleItem.product_id == product_id).order_by(Sale.sale_date.desc(), Sale.id.desc()).limit(30)
@@ -72,7 +77,8 @@ def detail(product_id: int):
             if item.product_id == product_id:
                 profit.add(margin_svc.item_margin(item, nets[item.id]))
     return render_template("products/detail.html", product=product, movements=movements, sales=sales,
-                           sold_qty=totals[0], sold_cents=totals[1], profit=profit)
+                           sold_qty=totals[0], sold_cents=totals[1], profit=profit,
+                           cost_history=cost_history, invested=int(invested))
 
 
 @bp.route("/<int:product_id>/editar", methods=["GET", "POST"])
@@ -83,7 +89,7 @@ def edit(product_id: int):
         return redirect(url_for("products.index"))
     if request.method == "POST":
         try:
-            svc.update_product(db(), product_id, product_from_form(request.form))
+            svc.update_product(db(), product_id, product_from_form(request.form), current_user_id())
         except BusinessError as e:
             flash(e.message, "error")
             return render_template("products/form.html", product=product, values=request.form,
@@ -105,9 +111,21 @@ def stock_action(product_id: int):
         flash("Estoque ajustado.", "success")
     else:
         qty = f.integer("quantity", "Quantidade", default=0)
-        stock.register_entry(db(), product_id, qty, note, current_user_id())
-        flash(f"Entrada de {qty} registrada.", "success")
+        cost = f.money("unit_cost", "Custo de cada unidade", default=None) if f.text("unit_cost") else None
+        stock.register_entry(db(), product_id, qty, note, current_user_id(), unit_cost_cents=cost,
+                             update_cost=bool(cost) and f.flag("update_cost"))
+        audit_event("compra_registrada", f"produto #{product_id} qtd={qty} custo={cost}")
+        flash(f"Compra de {qty} registrada" + (" e custo do produto atualizado." if cost and f.flag("update_cost") else "."), "success")
     return redirect(url_for("products.detail", product_id=product_id))
+
+
+@bp.post("/compras/<int:movement_id>/excluir")
+@handle_business_errors
+def void_purchase(movement_id: int):
+    entry = stock.void_entry(db(), movement_id, request.form.get("reason"), current_user_id())
+    audit_event("compra_excluida", f"produto #{entry.product_id} qtd={entry.quantity}")
+    flash("Compra excluída. O estoque foi ajustado e o registro continua no histórico.", "success")
+    return redirect(url_for("products.detail", product_id=entry.product_id))
 
 
 @bp.post("/<int:product_id>/ativo")

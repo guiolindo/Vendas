@@ -85,6 +85,10 @@
   });
 
   var kind = document.querySelector("[data-stock-kind]");
+  function purchaseFields() {
+    document.querySelectorAll("[data-purchase-only]").forEach(function (el) { el.hidden = kind.value === "ajuste"; });
+  }
+  if (kind) { kind.addEventListener("change", purchaseFields); purchaseFields(); }
   if (kind) kind.addEventListener("change", function () {
     document.querySelector("[data-stock-label]").textContent =
       kind.value === "ajuste" ? "Quantidade contada (o total que existe agora)" : "Quantidade que chegou";

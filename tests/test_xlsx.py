@@ -75,9 +75,9 @@ def test_sheet_layout_header_frozen_filter_and_print(session, data):
 
 
 def test_package_has_one_sheet_per_report_with_valid_names(session, data):
-    keys = ("pessoas", "vendas", "recebimentos", "a-receber", "produtos", "margem-produtos", "estoque", "clientes")
+    keys = ("pessoas", "vendas", "recebimentos", "a-receber", "produtos", "margem-produtos", "compras", "estoque", "clientes")
     wb = load(xlsx.to_xlsx([reports.build(session, k, reports.ReportParams(date_from=TODAY.replace(day=1), date_to=TODAY), TODAY) for k in keys]))
-    assert len(wb.sheetnames) == 8 and len(set(n.lower() for n in wb.sheetnames)) == 8
+    assert len(wb.sheetnames) == 9 and len(set(n.lower() for n in wb.sheetnames)) == 9
     assert all(len(n) <= 31 and not set('[]:*?/\\') & set(n) for n in wb.sheetnames)
     assert "Resultado por pessoa" in wb.sheetnames
 
@@ -99,7 +99,7 @@ def test_xlsx_routes(client, db, web_data):
     assert r.data[:2] == b"PK" and ".xlsx" in r.headers["Content-Disposition"]                # um .xlsx é um zip
     assert load(r.data).active["A1"].value == "Vendas por período"
     p = client.get("/relatorios/pacote?de=2026-10-01&ate=2026-10-31")
-    assert p.status_code == 200 and len(load(p.data).sheetnames) == 8
+    assert p.status_code == 200 and len(load(p.data).sheetnames) == 9
     assert client.get("/relatorios/pacote?de=lixo").status_code == 400                       # data inválida: mensagem, nunca 500
     assert "Exportar para Excel" in client.get("/relatorios/vendas").get_data(as_text=True)
     assert "Baixar Excel com tudo" in client.get("/relatorios").get_data(as_text=True)
