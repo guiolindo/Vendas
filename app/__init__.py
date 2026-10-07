@@ -19,6 +19,8 @@ def create_app(overrides: dict | None = None) -> Flask:
     app.config.from_object(Config)
     app.config.update(overrides or {})
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+    from . import clock
+    clock.configure(app.config.get("TIMEZONE") or os.environ.get("VENDAS_TZ"))   # fuso do negócio, não o do servidor
 
     production = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("VENDAS_ENV") == "prod")
     app.config["PRODUCTION"] = production = app.config.get("PRODUCTION", production)
@@ -33,7 +35,10 @@ def create_app(overrides: dict | None = None) -> Flask:
     url = (app.config.get("DATABASE_URL") or os.environ.get("DATABASE_URL")
            or f"sqlite:///{Path(app.instance_path) / 'vendas.db'}")
     database = Database(url)
-    database.create_all()
+    if production and not app.config.get("TESTING"):
+        database.ensure_migrated()
+    else:
+        database.create_all()
     app.extensions["database"] = database
     if production or os.environ.get("FORCE_HTTPS"):
         from werkzeug.middleware.proxy_fix import ProxyFix

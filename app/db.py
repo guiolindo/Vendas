@@ -57,7 +57,14 @@ def normalize_url(url: str) -> str:
 class Database:
     def __init__(self, url: str):
         url = normalize_url(url)
-        self.engine = create_engine(url, future=True, pool_pre_ping=True)
+        options: dict = {"future": True, "pool_pre_ping": True}
+        if not url.startswith("sqlite"):
+            options.update(
+                pool_size=5, max_overflow=5, pool_recycle=1800,
+                # Nenhuma consulta fica presa para sempre esperando outra.
+                connect_args={"options": "-c statement_timeout=30000 -c lock_timeout=15000"},
+            )
+        self.engine = create_engine(url, **options)
         if self.engine.dialect.name == "sqlite":
             _configure_sqlite(self.engine)
         self.factory = sessionmaker(self.engine, expire_on_commit=True)
@@ -75,6 +82,26 @@ class Database:
                 Base.metadata.create_all(conn)
         else:
             Base.metadata.create_all(self.engine)
+
+    def ensure_migrated(self) -> None:
+        """Em produção o esquema vem das migrações; recusa subir se não estiver na última."""
+        from pathlib import Path
+
+        from alembic.config import Config
+        from alembic.runtime.migration import MigrationContext
+        from alembic.script import ScriptDirectory
+
+        root = Path(__file__).resolve().parent.parent
+        cfg = Config(str(root / "alembic.ini"))
+        cfg.set_main_option("script_location", str(root / "migrations"))
+        head = ScriptDirectory.from_config(cfg).get_current_head()
+        with self.engine.connect() as conn:
+            current = MigrationContext.configure(conn).get_current_revision()
+        if current != head:
+            raise RuntimeError(
+                f"O banco está na versão {current or 'vazia'} e o sistema espera {head}. "
+                "Rode `alembic upgrade head` (no Railway, o preDeployCommand já faz isso)."
+            )
 
     def dispose(self) -> None:
         self.engine.dispose()

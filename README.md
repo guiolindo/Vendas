@@ -34,7 +34,20 @@ Sem `DATABASE_URL`, usa um SQLite em `instance/vendas.db` (só para desenvolvime
 4. Abra a URL do app: o primeiro acesso (`/configurar`) pede o código de instalação, o seu usuário e senha, e o nome das duas pessoas. Depois disso essa tela deixa de existir. Para criar mais usuários: `flask --app run create-user NOME` (terminal do Railway).
 5. Troque sua senha quando quiser em **Minha conta**.
 
-As tabelas são criadas automaticamente na primeira subida (com lock, então vários workers não colidem).
+### Banco de dados e migrações
+
+- Em produção o esquema vem do **Alembic**: o `preDeployCommand` do `railway.json` roda `alembic upgrade head` antes de cada deploy (se falhar, o deploy não vai ao ar e a versão antiga continua servindo). O app se recusa a iniciar se o banco não estiver na última versão.
+- Mudou um modelo? `alembic revision --autogenerate -m "o que mudou"`, revise o arquivo gerado e faça commit. `tests/test_migrations.py` falha se os modelos e as migrações divergirem.
+- No computador (SQLite) as tabelas são criadas sozinhas. Se você já tinha um banco local de uma versão antiga, apague `instance/vendas.db`.
+- **Backup**: ative os backups do serviço PostgreSQL no Railway (aba *Backups*) e, antes de mudanças grandes, faça `pg_dump "$DATABASE_URL" > backup.sql`. Restaurar: `psql "$DATABASE_URL" < backup.sql` em um banco vazio.
+
+### Fuso horário
+
+O servidor roda em UTC, mas "hoje", vencimentos e atraso seguem o horário do negócio: `America/Sao_Paulo` por padrão (mude com `VENDAS_TZ`). Uma venda feita às 22h de Brasília entra no dia certo.
+
+### Fora do Railway
+
+Defina `VENDAS_ENV=prod` para ligar as proteções de produção (cookie seguro, HTTPS, chaves obrigatórias), rode `alembic upgrade head` e depois o gunicorn por trás de um proxy com TLS.
 
 ## Margem, gráficos, Excel e comprovante: como funcionam
 
@@ -134,7 +147,8 @@ A tela só apresenta e facilita; **toda regra está em `services/` e `domain/`**
 - Os gráficos não têm tema escuro (o sistema inteiro é claro).
 - Há um único nível de acesso (todo usuário logado pode tudo). Usuários extras: `flask --app run create-user NOME`.
 - O bloqueio de tentativas de login é em memória por processo (basta contra tentativa simples; para mais, use um proxy/WAF).
-- O esquema é criado por `create_all`, que **só cria tabelas novas**: ele não altera colunas de um banco já existente. Antes de evoluir as tabelas em produção, adote o Alembic (um banco criado por uma versão anterior deste código não ganharia as colunas novas).
+- O esquema evolui por migrações Alembic (`migrations/`). O banco local de desenvolvimento é criado direto pelos modelos e não é migrado: apague-o ao atualizar.
+- Cliente com vendas não pode ser apagado nem anonimizado (o histórico financeiro precisa dele); não há 2FA nem níveis de acesso: todos os usuários veem tudo.
 - Os painéis por pessoa somam as vendas em Python (uma passada pelas vendas do mês e das que estão em aberto): ótimo para um negócio pequeno; com dezenas de milhares de vendas em aberto, vale mover para SQL.
 - Itens e valores de uma venda não são editáveis (corrigir = cancelar e registrar de novo); cliente, vencimento e observações são.
 - Atalhos no computador: `N` nova venda, `/` buscar, `Enter` adiciona produto, `Ctrl+Enter` conclui a venda.

@@ -12,7 +12,9 @@ from app import create_app
 def test_railway_start_command_expands_port_inside_a_shell():
     cfg = json.load(open("railway.json"))["deploy"]
     cmd = cfg["startCommand"]
-    assert cmd.startswith("sh -c ") and "${PORT" in cmd          # sem shell, $PORT não é expandido
+    assert cmd.startswith(("sh -c ", "/bin/sh -c ")) and "${PORT" in cmd   # sem shell, $PORT não é expandido
+    assert "alembic upgrade head" in cfg["preDeployCommand"]     # o esquema sobe antes do novo código
+    assert "?" not in cmd and "%(q)s" not in cmd and "%(r)s" not in cmd   # log de acesso sem query string
     assert cfg["healthcheckPath"] == "/saude"
     assert re.search(r"--bind 0\.0\.0\.0:", cmd)                  # escuta em todas as interfaces, não só 127.0.0.1
 

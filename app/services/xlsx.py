@@ -11,6 +11,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from .. import clock
 from ..domain.status import LABELS, Status
 from .reports import Report
 
@@ -110,7 +111,7 @@ def to_xlsx(reports: list[Report], subtitle: str = "") -> bytes:
         ws = wb.create_sheet(_sheet_title(rep.title, used))
         write_sheet(ws, rep, subtitle)
     wb.properties.creator = "Vendas"
-    wb.properties.created = datetime.now()
+    wb.properties.created = clock.now()
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
@@ -119,4 +120,4 @@ def to_xlsx(reports: list[Report], subtitle: str = "") -> bytes:
 def period_text(start: date | None, end: date | None) -> str:
     if start and end:
         return f"Período: {start.strftime('%d/%m/%Y')} a {end.strftime('%d/%m/%Y')}"
-    return f"Gerado em {date.today().strftime('%d/%m/%Y')}"
+    return f"Gerado em {clock.today().strftime('%d/%m/%Y')}"

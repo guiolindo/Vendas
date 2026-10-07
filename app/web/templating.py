@@ -19,6 +19,25 @@ MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "a
 
 
 def init_app(app) -> None:
+    import hashlib
+    from pathlib import Path
+
+
+    app.config.setdefault("SEND_FILE_MAX_AGE_DEFAULT", 31536000 if app.config.get("PRODUCTION") else 0)
+    _versions: dict[str, str] = {}
+
+    @app.url_defaults
+    def _bust_static_cache(endpoint, values):
+        # ?v=<hash do arquivo>: cache longo no navegador sem prender versão antiga após um deploy.
+        if endpoint != "static" or "filename" not in values:
+            return
+        name = values["filename"]
+        if name not in _versions or not app.config.get("PRODUCTION"):
+            path = Path(app.static_folder) / name
+            _versions[name] = hashlib.sha256(path.read_bytes()).hexdigest()[:10] if path.is_file() else ""
+        if _versions[name]:
+            values["v"] = _versions[name]
+
     env = app.jinja_env
     env.filters["brl"] = format_brl
     env.filters["brl_plain"] = lambda c: format_brl(c, symbol=False)
