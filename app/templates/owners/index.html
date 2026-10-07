@@ -1,28 +1,28 @@
 {% extends "base.html" %}{% from "_macros.html" import csrf %}
 {% block title %}Pessoas{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Pessoas</h1><p>Quem vende. Cada produto pertence a uma pessoa, e cada uma tem o seu painel.</p></div></div>
+<div class="page-head"><div><h1>Pessoas</h1><p>Quem vende. Na hora da venda você escolhe quem está vendendo, e cada pessoa tem o seu painel.</p></div></div>
 <div class="cols">
   <section class="panel"><header><h2>Cadastradas</h2></header>
     {% if owners %}<div class="table-wrap"><table class="cards">
-      <thead><tr><th>Nome</th><th class="right">Produtos</th><th></th></tr></thead>
+      <thead><tr><th>Nome</th><th class="right">Vendas</th><th></th></tr></thead>
       <tbody>{% for o in owners %}<tr>
         <td><form method="post" action="{{ url_for('owners.rename', owner_id=o.id) }}" class="pay-form" style="grid-template-columns: minmax(0,1fr) auto">{{ csrf() }}
           <input name="name" value="{{ o.name }}" maxlength="80" required aria-label="Nome" style="min-height:2.25rem">
           <button class="btn small" type="submit">Salvar nome</button></form>
-          {% if not o.active %}<span class="badge inativo">Sem novos produtos</span>{% endif %}</td>
-        <td class="right num"><a href="{{ url_for('products.index', dono=o.id) }}">{{ counts.get(o.id, 0) }}</a></td>
+          {% if not o.active %}<span class="badge inativo">Fora das vendas</span>{% endif %}</td>
+        <td class="right num">{{ counts.get(o.id, 0) }}</td>
         <td class="right"><form method="post" action="{{ url_for('owners.toggle', owner_id=o.id) }}" class="inline-form">{{ csrf() }}
           <input type="hidden" name="active" value="{{ '0' if o.active else '1' }}"><button class="link-button" type="submit">{{ 'Desativar' if o.active else 'Reativar' }}</button></form>
           {% if not counts.get(o.id, 0) %}<form method="post" action="{{ url_for('owners.delete', owner_id=o.id) }}" class="inline-form" data-confirm="Excluir {{ o.name }}? Isso não pode ser desfeito.">{{ csrf() }}
             <button class="link-button danger" type="submit">Excluir</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
-    {% else %}<div class="empty"><strong>Nenhuma pessoa cadastrada.</strong>Cadastre quem vende para dividir produtos e painéis.</div>{% endif %}
+    {% else %}<div class="empty"><strong>Nenhuma pessoa cadastrada.</strong>Cadastre quem vende para escolher o vendedor em cada venda e ver o painel de cada um.</div>{% endif %}
   </section>
   <section class="panel"><header><h2>Adicionar pessoa</h2></header><div class="body">
     <form method="post" action="{{ url_for('owners.create') }}">{{ csrf() }}
       <div class="field"><label for="name">Nome</label><input id="name" name="name" maxlength="80" required></div>
       <button class="btn primary" type="submit">Adicionar</button>
-      <p class="help" style="margin-top:.75rem">Desativar não apaga nada: a pessoa só deixa de receber produtos novos. Trocar o dono de um produto vale só para as próximas vendas.</p>
+      <p class="help" style="margin-top:.75rem">Desativar não apaga nada: a pessoa só deixa de aparecer na hora de vender. As vendas dessa pessoa continuam no histórico.</p>
     </form></div></section>
 </div>
 {% endblock %}

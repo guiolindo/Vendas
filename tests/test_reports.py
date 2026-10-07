@@ -79,7 +79,7 @@ def test_voided_payment_leaves_cash_reports(session, scenario):
 def test_csv_export_is_excel_friendly(session, scenario):
     data = reports.to_csv(reports.build(session, "vendas", ReportParams(), TODAY)).decode("utf-8-sig")
     lines = data.strip().splitlines()
-    assert lines[0].startswith("Venda;Data;Cliente")
+    assert lines[0].startswith("Venda;Data;Quem vendeu;Cliente")
     assert "100,00" in lines[1] or "100,00" in data
     assert lines[-1].startswith("Total;")
     assert "600,00" in lines[-1]

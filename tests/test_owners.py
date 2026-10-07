@@ -13,19 +13,19 @@ from app.services import sales as sale_svc
 from app.services.sales import ItemInput, SaleInput
 from sqlalchemy import select
 
-from .conftest import TODAY
+from .conftest import TODAY, owned, create_sale_for
 
 
 @pytest.fixture
 def duo(session, make_customer):
     ana, bia = own.create_owner(session, "Ana"), own.create_owner(session, "Bia")
-    pa = pvc.create_product(session, pvc.ProductInput(name="Produto da Ana", price_cents=10000, cost_cents=4000, initial_stock=50, owner_id=ana.id))
-    pb = pvc.create_product(session, pvc.ProductInput(name="Produto da Bia", price_cents=5000, cost_cents=2000, initial_stock=50, owner_id=bia.id))
+    pa = owned(pvc.create_product(session, pvc.ProductInput(name="Produto da Ana", price_cents=10000, cost_cents=4000, initial_stock=50)), ana)
+    pb = owned(pvc.create_product(session, pvc.ProductInput(name="Produto da Bia", price_cents=5000, cost_cents=2000, initial_stock=50)), bia)
     return ana, bia, pa, pb, make_customer("Cliente")
 
 
 def sell(session, items, **kw):
-    return sale_svc.create_sale(session, SaleInput(items=[ItemInput(p.id, q) for p, q in items], **kw))
+    return create_sale_for(session, SaleInput(items=[ItemInput(p.id, q) for p, q in items], **kw))
 
 
 # ── divisão ─────────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ def test_payment_splits_are_exact_nonnegative_and_settle_each_person(session, du
 def test_partial_state_sums_to_the_real_totals_to_the_cent(session, duo):
     """O caso que dava R$ 609,41 contra R$ 609,40: a soma das pessoas tem de bater com o geral."""
     ana, bia, pa, pb, c = duo
-    odd = pvc.create_product(session, pvc.ProductInput(name="Quebrado", price_cents=33333, initial_stock=9, owner_id=bia.id))
+    odd = owned(pvc.create_product(session, pvc.ProductInput(name="Quebrado", price_cents=33333, initial_stock=9)), bia)
     sale = sell(session, [(pa, 1), (odd, 1)], customer_id=c.id, paid_cents=5001, payment_method="pix", due_date=TODAY + timedelta(days=3))
     shares = own.sale_shares(sale)
     paid = {k: sum(p[k] for _, p in own.payment_splits(sale, shares)) for k in shares}
@@ -130,34 +130,48 @@ def test_later_payments_are_attributed_by_date(session, scenario):
     assert a.receivable == 0 and a.received_today == 100_00 + 90_00    # parte da Ana na venda 1 quitada
 
 
-def test_changing_product_owner_does_not_rewrite_history(session, scenario):
+def test_changing_who_sold_moves_the_whole_sale_and_leaves_the_others(session, scenario):
     ana, bia, pa, pb, c, (s1, *_) = scenario
-    pvc.update_product(session, pa.id, pvc.ProductInput(name="Produto da Ana", price_cents=10000, owner_id=bia.id))
-    assert {i.owner_id for i in session.scalars(select(SaleItem).where(SaleItem.product_id == pa.id))} == {ana.id}
-    a = dashboard.build_for_owner(session, TODAY, ana.id)
-    assert a.sold_today == 190_00                                       # vendas antigas continuam da Ana
-    s = sell(session, [(pa, 1)], paid_cents=10000, payment_method="pix")  # a nova já é da Bia
-    assert own.sale_shares(s) == {bia.id: 10000}
+    before = dashboard.build_for_owner(session, TODAY, ana.id).sold_today
+    s = sell(session, [(pb, 1)], paid_cents=5000, payment_method="pix", seller_id=bia.id)
+    assert own.sale_shares(s) == {bia.id: 5000}
+    sale_svc.update_sale(session, s.id, None, None, None, seller_id=ana.id)       # a pessoa errada foi escolhida
+    session.expire_all()
+    assert own.sale_shares(session.get(type(s), s.id)) == {ana.id: 5000}
+    assert dashboard.build_for_owner(session, TODAY, ana.id).sold_today == before + 5000
+    assert {i.owner_id for i in session.scalars(select(SaleItem).where(SaleItem.sale_id == s1.id))} == {ana.id, bia.id}   # a venda antiga ficou como estava
 
 
 # ── cadastro ────────────────────────────────────────────────────────────────
-def test_product_needs_an_owner_once_people_exist(session, duo):
-    with pytest.raises(BusinessError, match="de quem é o produto"):
-        pvc.create_product(session, pvc.ProductInput(name="Sem dono", price_cents=100))
-    with pytest.raises(BusinessError, match="pessoa válida"):
-        pvc.create_product(session, pvc.ProductInput(name="Dono falso", price_cents=100, owner_id=9999))
-
-
-def test_product_without_people_registered_is_allowed(session, make_product):
-    assert make_product("Livre").owner_id is None
-
-
-def test_inactive_person_cannot_receive_new_products_but_keeps_old(session, duo):
+def test_sale_needs_a_seller_once_people_exist(session, duo):
     ana, bia, pa, pb, c = duo
+    with pytest.raises(BusinessError, match="Escolha quem está vendendo"):
+        sale_svc.create_sale(session, SaleInput(items=[ItemInput(pa.id, 1)], paid_cents=10000, payment_method="pix"))
+    with pytest.raises(BusinessError, match="pessoa válida"):
+        sale_svc.create_sale(session, SaleInput(items=[ItemInput(pa.id, 1)], paid_cents=10000, payment_method="pix", seller_id=9999))
+
+
+def test_sale_without_people_registered_is_allowed(session, make_product):
+    p = make_product("Livre")
+    sale = sale_svc.create_sale(session, SaleInput(items=[ItemInput(p.id, 1)], paid_cents=p.price_cents, payment_method="pix"))
+    assert sale.seller_id is None and {i.owner_id for i in sale.items} == {None}
+
+
+def test_every_item_of_a_sale_belongs_to_the_chosen_seller(session, duo):
+    ana, bia, pa, pb, c = duo
+    s = sale_svc.create_sale(session, SaleInput(items=[ItemInput(pa.id, 1), ItemInput(pb.id, 2)], paid_cents=20000,
+                                                payment_method="pix", seller_id=bia.id))
+    assert s.seller_id == bia.id and {i.owner_id for i in s.items} == {bia.id}
+    assert own.sale_shares(s) == {bia.id: 20000}
+
+
+def test_inactive_person_cannot_sell_but_keeps_old_sales(session, duo):
+    ana, bia, pa, pb, c = duo
+    old = sale_svc.create_sale(session, SaleInput(items=[ItemInput(pa.id, 1)], paid_cents=10000, payment_method="pix", seller_id=ana.id))
     own.set_owner_active(session, ana.id, False)
     with pytest.raises(BusinessError, match="pessoa válida"):
-        pvc.create_product(session, pvc.ProductInput(name="Novo", price_cents=100, owner_id=ana.id))
-    pvc.update_product(session, pa.id, pvc.ProductInput(name="Produto da Ana", price_cents=12000, owner_id=ana.id))  # edição ok
+        sale_svc.create_sale(session, SaleInput(items=[ItemInput(pa.id, 1)], paid_cents=10000, payment_method="pix", seller_id=ana.id))
+    assert dashboard.build_for_owner(session, TODAY, ana.id).sold_today >= old.total_cents
 
 
 def test_owner_names_are_unique_and_validated(session):
@@ -174,12 +188,14 @@ def test_owner_names_are_unique_and_validated(session):
     assert own.rename_owner(session, bia.id, "Beatriz").name == "Beatriz"
 
 
-def test_products_without_owner_still_show_up_in_general_panel(session, make_product, duo):
+def test_sales_without_seller_still_show_up_in_general_panel(session, make_product, duo):
     ana, bia, pa, pb, c = duo
-    loose = make_product("Antigo sem dono", price=3000, owner_id=ana.id)
-    loose.owner_id = None  # produto de antes do cadastro das pessoas
+    loose = make_product("Antigo", price=3000)
+    old = sell(session, [(loose, 1)], paid_cents=3000, payment_method="pix", seller_id=ana.id)
+    old.seller_id = None                                                    # venda de antes do cadastro das pessoas
+    for item in old.items:
+        item.owner_id = None
     session.commit()
-    sell(session, [(loose, 1)], paid_cents=3000, payment_method="pix")
     g = dashboard.build(session, TODAY)
     assert g.sold_today == 3000
     assert g.by_owner[-1].owner is None and g.by_owner[-1].acc.sold_today == 3000
@@ -197,20 +213,20 @@ def test_report_by_person_matches_panels(session, scenario):
     assert r.totals["sold"] == 340_00 and r.totals["received"] == 190_00 and r.totals["receivable"] == 150_00
 
 
-def test_product_and_stock_reports_filter_by_person(session, scenario):
+def test_product_and_sales_reports_filter_by_seller(session, scenario):
     from app.services import reports
     ana, bia, pa, pb, *_ = scenario
     r = reports.build(session, "produtos", reports.ReportParams(owner_id=bia.id), TODAY)
     assert [row["name"] for row in r.rows] == ["Produto da Bia"] and r.totals["qty"] == 3
-    r = reports.build(session, "estoque", reports.ReportParams(owner_id=ana.id), TODAY)
-    assert [row["name"] for row in r.rows] == ["Produto da Ana"]
+    r = reports.build(session, "vendas", reports.ReportParams(owner_id=ana.id), TODAY)
+    assert {row["seller"] for row in r.rows} == {"Ana"}
 
 
 def test_general_panel_equals_sum_of_people_to_the_cent_with_awkward_amounts(session, duo):
     """Valores que não dividem certo + pagamentos parciais em dias diferentes: o geral nunca difere das pessoas."""
     from decimal import Decimal
     ana, bia, pa, pb, c = duo
-    odd = pvc.create_product(session, pvc.ProductInput(name="Quebrado", price_cents=33333, initial_stock=99, owner_id=bia.id))
+    odd = owned(pvc.create_product(session, pvc.ProductInput(name="Quebrado", price_cents=33333, initial_stock=99)), bia)
     rng = random.Random(3)
     for _ in range(12):
         s = sell(session, [(pa, rng.randint(1, 2)), (odd, rng.randint(1, 3)), (pb, 1)],

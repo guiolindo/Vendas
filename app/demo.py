@@ -24,17 +24,17 @@ def load(session) -> str:
                ("Tênis esportivo", "Calçados", 24990, 12000, 12, 4), ("Meia (par)", "Acessórios", 1990, 700, 80, 20)]
     ana, bia = osvc.create_owner(session, "Ana"), osvc.create_owner(session, "Bia")
     products = [pvc.create_product(session, pvc.ProductInput(name=n, category_name=c, price_cents=p, cost_cents=k,
-                                                             initial_stock=s, min_stock=m,
-                                                             owner_id=(ana if i % 2 == 0 else bia).id))
-                for i, (n, c, p, k, s, m) in enumerate(catalog)]
+                                                             initial_stock=s, min_stock=m))
+                for n, c, p, k, s, m in catalog]
     people = [csvc.create_customer(session, csvc.CustomerInput(name=n, phone=t)) for n, t in
               [("João da Silva", "(11) 91234-5678"), ("Maria Oliveira", "(21) 99876-5432"), ("Carlos Souza", None)]]
     d = timedelta
     plan = [(people[0], [(1, 2), (4, 1)], 20, 5000, -5), (people[0], [(0, 3)], 6, 0, -2),
             (people[1], [(1, 1), (3, 1)], 8, 15000, 5), (people[2], [(2, 2)], 1, 0, 0),
             (None, [(5, 3)], 0, 5970, None)]
-    for customer, items, ago, paid, due_in in plan:
+    for n, (customer, items, ago, paid, due_in) in enumerate(plan):
         sale = ssvc.create_sale(session, SaleInput(
+            seller_id=(ana if n % 2 == 0 else bia).id,
             items=[ItemInput(products[i].id, q) for i, q in items], customer_id=customer.id if customer else None,
             sale_date=today - d(days=ago), paid_cents=paid, payment_method="pix" if paid else None,
             due_date=today + d(days=due_in) if due_in is not None else None))

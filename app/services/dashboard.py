@@ -79,7 +79,7 @@ class DebtorRow:
 
 @dataclass
 class OwnerRow:
-    owner: object | None  # None = produtos sem dono
+    owner: object | None  # None = vendas sem vendedor (feitas antes de cadastrar pessoas)
     acc: owner_svc.Acc
 
 
@@ -87,12 +87,12 @@ def _owner_rows(session: Session, acc: dict) -> list[OwnerRow]:
     rows = [OwnerRow(o, acc.get(o.id, owner_svc.Acc())) for o in owner_svc.list_owners(session)]
     loose = acc.get(None)
     if loose and (loose.sold_month or loose.receivable or loose.received_month) and rows:
-        rows.append(OwnerRow(None, loose))  # há venda de produto sem dono: aparece, não some
+        rows.append(OwnerRow(None, loose))  # há venda sem vendedor: aparece, não some
     return rows
 
 
 def build_for_owner(session: Session, today: date, owner_id: int) -> Dashboard:
-    """Painel simples de uma pessoa: só a parte dela (produtos dela e a fatia dela de cada venda)."""
+    """Painel simples de uma pessoa: só as vendas que ela fez."""
     from ..models import Owner
     owner = session.get(Owner, owner_id)
     month_start = today.replace(day=1)
@@ -113,7 +113,7 @@ def build_for_owner(session: Session, today: date, owner_id: int) -> Dashboard:
         margin_month=a.margin_month, overdue=a.overdue, overdue_customers=len(a.overdue_customers), due_today=a.due_today, due_soon=a.due_soon,
         top_products=top,
         low_stock=list(session.scalars(
-            select(Product).where(Product.active.is_(True), Product.owner_id == owner_id, Product.track_stock.is_(True),
+            select(Product).where(Product.active.is_(True), Product.track_stock.is_(True),
                                   Product.stock_qty <= Product.min_stock).order_by(Product.stock_qty, Product.name).limit(6))),
         debtors=debtors,
         overdue_sales=sorted(a.overdue_sales, key=lambda s: (s.due_date, s.id))[:5],

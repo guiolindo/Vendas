@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head">
   <div><h1>{{ 'Painel de ' ~ chosen.name if chosen else 'Início' }}</h1>
-    <p>{{ today.strftime('%d/%m/%Y') }}{% if chosen %} · só o que pertence a {{ chosen.name }}: os produtos e a parte que cabe a esta pessoa em cada venda{% endif %}</p></div>
+    <p>{{ today.strftime('%d/%m/%Y') }}{% if chosen %} · só as vendas feitas por {{ chosen.name }}{% endif %}</p></div>
   <div class="actions"><a class="btn primary" href="{{ url_for('sales.new') }}">{{ icon('plus') }} Nova venda</a></div>
 </div>
 
@@ -50,7 +50,7 @@
   <div class="table-wrap"><table class="cards">
     <thead><tr><th>Pessoa</th><th class="right">Vendido</th><th class="right">Margem</th><th class="right">Recebido</th><th class="right">A receber</th><th class="right">Vencido</th></tr></thead>
     <tbody>{% for r in d.by_owner %}<tr>
-      <td>{% if r.owner %}<a href="{{ url_for('dashboard.index', pessoa=r.owner.id) }}">{{ r.owner.name }}</a>{% if not r.owner.active %} <span class="badge inativo">Sem novos produtos</span>{% endif %}{% else %}<span class="muted">Produtos sem dono</span>{% endif %}</td>
+      <td>{% if r.owner %}<a href="{{ url_for('dashboard.index', pessoa=r.owner.id) }}">{{ r.owner.name }}</a>{% if not r.owner.active %} <span class="badge inativo">Fora das vendas</span>{% endif %}{% else %}<span class="muted">Sem vendedor</span>{% endif %}</td>
       <td class="right money">{{ r.acc.sold_month|brl }}</td>
       <td class="right money">{{ r.acc.margin_month.amount|brl if r.acc.margin_month.percent is not none else '—' }}{% if r.acc.margin_month.percent is not none %}<span class="sub">{{ r.acc.margin_month.percent|string|replace('.', ',') }}%</span>{% endif %}</td>
       <td class="right money in-money">{{ r.acc.received_month|brl }}</td>

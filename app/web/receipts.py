@@ -25,12 +25,8 @@ def thermal_height_mm(items: int, payments: int, owes: bool, extra_lines: int = 
 
 
 def _sellers(sale: Sale) -> list[str]:
-    """Quem vendeu (dono dos produtos), na ordem em que aparecem na venda, sem repetir."""
-    seen: list[str] = []
-    for item in sale.items:
-        if item.owner and item.owner.name not in seen:
-            seen.append(item.owner.name)
-    return seen
+    """Quem vendeu, para o comprovante (uma pessoa por venda)."""
+    return [sale.seller.name] if sale.seller else []
 
 
 @bp.get("/vendas/<int:sale_id>/comprovante")

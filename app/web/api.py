@@ -15,12 +15,10 @@ bp = Blueprint("api", __name__, url_prefix="/api")
 
 @bp.get("/produtos")
 def products():
-    raw = request.args.get("owner", "")
-    owner_id = int(raw) if raw.isdigit() and int(raw) < 2**31 else None
-    items = product_repo.search_for_sale(db(), request.args.get("q", ""), owner_id=owner_id)
+    items = product_repo.search_for_sale(db(), request.args.get("q", ""))
     return jsonify([{
         "id": p.id, "name": p.name, "code": p.code, "sku": p.sku, "unit": p.unit,
-        "price_cents": p.price_cents, "cost_cents": p.cost_cents, "stock": p.stock_qty if p.track_stock else None, "owner": p.owner.name if p.owner else "",
+        "price_cents": p.price_cents, "cost_cents": p.cost_cents, "stock": p.stock_qty if p.track_stock else None
     } for p in items])
 
 

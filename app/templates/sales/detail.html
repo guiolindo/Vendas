@@ -4,11 +4,11 @@
 {% set st = sale.status %}
 <div class="page-head"><div><a class="crumb" href="{{ url_for('sales.index') }}">‹ Vendas</a>
   <h1>Venda #{{ sale.id }} {{ badge(st) }}</h1>
-  <p>{{ sale.sale_date|data }} ·
+  <p>{{ sale.sale_date|data }}{% if sale.seller %} · vendido por <span class="owner-tag">{{ sale.seller.name }}</span>{% endif %} ·
     {% if sale.customer %}<a href="{{ url_for('customers.detail', customer_id=sale.customer_id) }}">{{ sale.customer.name }}</a>{% else %}Consumidor (sem cadastro){% endif %}</p></div>
   <div class="actions no-print">
     <a class="btn primary" href="{{ url_for('receipts.sale', sale_id=sale.id) }}" target="_blank" rel="noopener">{{ icon('print') }} Comprovante</a>
-    {% if not sale.cancelled %}<a class="btn" href="{{ url_for('sales.edit', sale_id=sale.id) }}">{{ icon('edit') }} Corrigir cliente ou vencimento</a>{% endif %}
+    {% if not sale.cancelled %}<a class="btn" href="{{ url_for('sales.edit', sale_id=sale.id) }}">{{ icon('edit') }} Corrigir quem vendeu, cliente ou vencimento</a>{% endif %}
   </div></div>
 
 {% if sale.cancelled %}
@@ -29,7 +29,7 @@
       <header><h2>Produtos</h2></header>
       <div class="table-wrap"><table>
         <thead><tr><th>Produto</th><th class="right">Qtd.</th><th class="right">Preço</th><th class="right">Subtotal</th></tr></thead>
-        <tbody>{% for i in sale.items %}<tr><td><a href="{{ url_for('products.detail', product_id=i.product_id) }}">{{ i.product_name }}</a><span class="sub">{{ i.product_code }}{% if i.owner %} · <span class="owner-tag">{{ i.owner.name }}</span>{% endif %}</span></td>
+        <tbody>{% for i in sale.items %}<tr><td><a href="{{ url_for('products.detail', product_id=i.product_id) }}">{{ i.product_name }}</a><span class="sub">{{ i.product_code }}</span></td>
           <td class="right num">{{ i.quantity }} {{ i.unit }}</td><td class="right money">{{ i.unit_price_cents|brl }}</td><td class="right money">{{ i.total_cents|brl }}</td></tr>{% endfor %}</tbody>
         <tfoot>
           {% if sale.discount_cents %}<tr><td colspan="3" class="right">Subtotal</td><td class="right money">{{ sale.subtotal_cents|brl }}</td></tr>

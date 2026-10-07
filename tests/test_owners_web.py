@@ -8,15 +8,15 @@ from app.services import customers as csvc
 from app.services import owners as own
 from app.services import products as pvc
 
-from .conftest import TODAY
+from .conftest import TODAY, owned
 from .test_web import app, client, db, post, post_json  # noqa: F401  (fixtures)
 
 
 @pytest.fixture
 def two(db):
     ana, bia = own.create_owner(db, "Ana"), own.create_owner(db, "Bia")
-    pa = pvc.create_product(db, pvc.ProductInput(name="Vestido", price_cents=10000, cost_cents=4000, initial_stock=10, owner_id=ana.id))
-    pb = pvc.create_product(db, pvc.ProductInput(name="Brinco", price_cents=5000, cost_cents=2000, initial_stock=10, owner_id=bia.id))
+    pa = owned(pvc.create_product(db, pvc.ProductInput(name="Vestido", price_cents=10000, cost_cents=4000, initial_stock=10)), ana)
+    pb = owned(pvc.create_product(db, pvc.ProductInput(name="Brinco", price_cents=5000, cost_cents=2000, initial_stock=10)), bia)
     c = csvc.create_customer(db, csvc.CustomerInput(name="Cliente"))
     return ana, bia, pa, pb, c
 
@@ -36,13 +36,14 @@ def test_people_page_and_management(client, db):
 
 def test_dashboard_general_and_each_person(client, db, two):
     ana, bia, pa, pb, c = two
-    post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}, {"product_id": pb.id, "quantity": 2}],
-                                       "customer_id": c.id, "paid": "100", "payment_method": "pix",
-                                       "due_date": (TODAY + timedelta(days=5)).isoformat()})
+    due = (TODAY + timedelta(days=5)).isoformat()
+    post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}], "seller_id": ana.id, "paid": "100", "payment_method": "pix"})
+    post_json(client, "/vendas/nova", {"items": [{"product_id": pb.id, "quantity": 2}], "seller_id": bia.id, "customer_id": c.id,
+                                       "paid": "40", "payment_method": "pix", "due_date": due})
     geral = client.get("/?pessoa=geral").get_data(as_text=True)
     assert "Por pessoa" in geral and ">Ana<" in geral and ">Bia<" in geral and "R$ 200,00" in geral
     pana = client.get(f"/?pessoa={ana.id}").get_data(as_text=True)
-    assert "Painel de Ana" in pana and "só o que pertence a Ana" in pana and "Por pessoa" not in pana and "R$ 100,00" in pana
+    assert "Painel de Ana" in pana and "só as vendas feitas por Ana" in pana and "Por pessoa" not in pana and "R$ 100,00" in pana
     assert "Painel de Bia" in client.get(f"/?pessoa={bia.id}").get_data(as_text=True)
     # a escolha fica lembrada ao voltar ao início sem parâmetro
     assert "Painel de Bia" in client.get("/").get_data(as_text=True)
@@ -52,41 +53,42 @@ def test_dashboard_general_and_each_person(client, db, two):
     assert client.get("/?pessoa=abc").status_code == 200
 
 
-def test_product_form_requires_owner_and_saves_it(client, db, two):
-    ana, bia, *_ = two
-    r = post(client, "/produtos/novo", {"name": "Colar", "price": "20"})
-    assert r.status_code == 422 and "de quem é o produto" in r.get_data(as_text=True)
-    post(client, "/produtos/novo", {"name": "Colar", "price": "20", "owner": str(bia.id)})
-    db.rollback()
-    assert db.scalar(select(Product).where(Product.name == "Colar")).owner_id == bia.id
+def test_product_has_no_owner_and_sale_page_asks_who_is_selling(client, db, two):
+    ana, bia, pa, *_ = two
+    form = client.get("/produtos/novo").get_data(as_text=True)
+    assert 'name="owner"' not in form and "De quem é o produto" not in form
+    assert post(client, "/produtos/novo", {"name": "Colar", "price": "20"}).status_code == 302
     page = client.get("/produtos").get_data(as_text=True)
-    assert "owner-tag" in page and ">Bia<" in page
-    only = client.get(f"/produtos?dono={ana.id}&limpar=").get_data(as_text=True)
-    assert "Vestido" in only and "Colar" not in only
+    assert "Colar" in page and 'name="dono"' not in page
+    assert "owner" not in client.get("/api/produtos").get_json()[0]
+    pos = client.get("/vendas/nova").get_data(as_text=True)
+    assert "Quem está vendendo?" in pos and ">Ana<" in pos and ">Bia<" in pos and 'name="seller"' in pos
 
 
-def test_sale_search_can_filter_by_person(client, two):
-    ana, bia, *_ = two
-    names = lambda r: [p["name"] for p in r.get_json()]
-    assert set(names(client.get("/api/produtos"))) == {"Vestido", "Brinco"}
-    assert names(client.get(f"/api/produtos?owner={ana.id}")) == ["Vestido"]
-    assert client.get(f"/api/produtos?owner={bia.id}").get_json()[0]["owner"] == "Bia"
-    assert client.get("/api/produtos?owner=99999999999999").status_code == 200
-    assert "data-owner" in client.get("/vendas/nova").get_data(as_text=True)
-
-
-def test_sale_page_shows_owner_of_the_time_of_sale(client, db, two):
+def test_sale_requires_a_seller_and_remembers_who_sold(client, db, two):
     ana, bia, pa, *_ = two
     r = post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}], "paid": "100", "payment_method": "pix"})
+    assert r.status_code == 422 and r.get_json()["field"] == "seller" and "Escolha quem está vendendo" in r.get_json()["message"]
+    r = post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}], "seller_id": bia.id, "paid": "100", "payment_method": "pix"})
     url = r.get_json()["redirect"]
-    pvc.update_product(db, pa.id, pvc.ProductInput(name="Vestido", price_cents=10000, owner_id=bia.id))
     page = client.get(url).get_data(as_text=True)
-    assert 'owner-tag">Ana<' in page and 'owner-tag">Bia<' not in page
+    assert "vendido por" in page and 'owner-tag">Bia<' in page
+    assert "Bia" in client.get("/vendas").get_data(as_text=True)
+
+
+def test_fixing_a_sale_can_change_who_sold(client, db, two):
+    ana, bia, pa, *_ = two
+    r = post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}], "seller_id": ana.id, "paid": "100", "payment_method": "pix"})
+    url = r.get_json()["redirect"]
+    assert 'name="seller_id"' in client.get(url + "/editar").get_data(as_text=True)
+    post(client, url + "/editar", {"seller_id": str(bia.id), "customer_id": "", "due_date": "", "notes": ""})
+    assert 'owner-tag">Bia<' in client.get(url).get_data(as_text=True)
+    assert "R$ 100,00" in client.get(f"/?pessoa={bia.id}").get_data(as_text=True)
 
 
 def test_person_reports_render(client, two):
     ana, *_ = two
-    for url in ("/relatorios/pessoas", f"/relatorios/produtos?pessoa={ana.id}", f"/relatorios/estoque?pessoa={ana.id}",
+    for url in ("/relatorios/pessoas", f"/relatorios/produtos?pessoa={ana.id}",
                 "/relatorios/pessoas?exportar=csv"):
         assert client.get(url).status_code == 200, url
 
@@ -108,7 +110,7 @@ def test_setup_creates_the_two_people(tmp_path):
 def test_margin_shows_on_sale_product_and_form_pages(client, db, two):
     ana, bia, pa, pb, c = two
     r = post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 2}, {"product_id": pb.id, "quantity": 1, "price": "80"}],
-                                           "paid": "280", "payment_method": "pix"})
+                                           "seller_id": ana.id, "paid": "280", "payment_method": "pix"})
     page = client.get(r.get_json()["redirect"]).get_data(as_text=True)
     assert "Margem desta venda" in page and "Só você vê" in page
     assert "R$ 120,00" in page and "R$ 60,00" in page          # vestido: 200-80 ; brinco vendido a 80: 80-20
@@ -124,7 +126,7 @@ def test_margin_shows_on_sale_product_and_form_pages(client, db, two):
 
 def test_margin_is_private_and_absent_from_cancelled_sale(client, db, two):
     ana, bia, pa, pb, c = two
-    r = post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}], "paid": "100", "payment_method": "pix"})
+    r = post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}], "seller_id": ana.id, "paid": "100", "payment_method": "pix"})
     url = r.get_json()["redirect"]
     post(client, url + "/cancelar", {"reason": "teste"})
     assert "Margem desta venda" not in client.get(url).get_data(as_text=True)

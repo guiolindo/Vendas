@@ -9,7 +9,7 @@
   <div><span class="r-label">Cliente</span>
     <strong>{{ sale.customer.name if sale.customer else 'Consumidor' }}</strong>
     {% if sale.customer and (sale.customer.phone or sale.customer.document) %}<span class="r-muted">{{ [sale.customer.phone, sale.customer.document]|select|join(' · ') }}</span>{% endif %}</div>
-  {% if cfg.show_seller and sellers %}<div><span class="r-label">{{ 'Vendido por' if sellers|length == 1 else 'Vendido por' }}</span><strong>{{ sellers|join(' e ') }}</strong></div>{% endif %}
+  {% if cfg.show_seller and sellers %}<div><span class="r-label">Vendido por</span><strong>{{ sellers|join(' e ') }}</strong></div>{% endif %}
   {% if sale.remaining_cents > 0 and sale.due_date %}<div><span class="r-label">Vencimento</span><strong>{{ sale.due_date|data }}</strong><span class="r-muted">{{ sale.due_date|due_hint }}</span></div>{% endif %}
   <div class="r-stamp {{ st }}" aria-label="Situação: {{ st|status_label }}">{{ st|status_label }}</div>
 </section>
@@ -18,7 +18,7 @@
   <thead><tr><th>Produto</th><th class="num">Qtd.</th><th class="num">Preço</th><th class="num">Total</th></tr></thead>
   <tbody>{% for i in sale.items %}
     <tr><td class="item"><span class="item-name">{{ i.product_name }}</span>
-          <span class="r-muted">{{ i.product_code }}{% if cfg.show_seller and sellers|length > 1 and i.owner %} · {{ i.owner.name }}{% endif %}</span></td>
+          <span class="r-muted">{{ i.product_code }}</span></td>
         <td class="num">{{ i.quantity }}{% if i.unit and i.unit != 'un' %} {{ i.unit }}{% endif %}</td>
         <td class="num">{{ i.unit_price_cents|brl }}</td><td class="num strong">{{ i.total_cents|brl }}</td></tr>{% endfor %}</tbody>
 </table>

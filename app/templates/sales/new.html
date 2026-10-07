@@ -14,9 +14,9 @@
   <div class="pos-left">
     <section class="panel">
       <div class="body">
-        {% if owners %}<div class="owner-filter" role="group" aria-label="Produtos de quem">
-          <button type="button" class="chip" data-owner="" aria-pressed="true">Todos</button>
-          {% for o in owners %}<button type="button" class="chip" data-owner="{{ o.id }}" aria-pressed="false">{{ o.name }}</button>{% endfor %}</div>{% endif %}
+        {% if owners %}<fieldset class="seller-pick" id="seller-pick"><legend>Quem está vendendo?</legend>
+          {% for o in owners %}<label class="seller-opt"><input type="radio" name="seller" value="{{ o.id }}" {% if owners|length == 1 %}checked{% endif %}><span>{{ o.name }}</span></label>{% endfor %}
+        </fieldset>{% endif %}
         <div class="search-box">{{ icon('search') }}
           <input id="product-search" type="search" autocomplete="off" placeholder="Buscar produto por nome, código ou SKU" aria-label="Buscar produto"
                  role="combobox" aria-expanded="false" aria-controls="product-results" autofocus>

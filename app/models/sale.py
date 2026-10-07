@@ -30,6 +30,8 @@ class Sale(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     client_token: Mapped[str | None] = mapped_column(String(64), unique=True)  # evita venda duplicada por duplo clique
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"), index=True)
+    # Quem vendeu (escolhido na hora da venda). Vazio só quando o negócio ainda não cadastrou pessoas.
+    seller_id: Mapped[int | None] = mapped_column(ForeignKey("owners.id", ondelete="RESTRICT"), index=True)
     sale_date: Mapped[date] = mapped_column(Date)
     due_date: Mapped[date | None] = mapped_column(Date)
     subtotal_cents: Mapped[int]
@@ -42,6 +44,7 @@ class Sale(Base):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
     customer: Mapped[Customer | None] = relationship()
+    seller: Mapped[Owner | None] = relationship(foreign_keys=[seller_id])
     items: Mapped[list[SaleItem]] = relationship(
         back_populates="sale", cascade="all, delete-orphan", order_by="SaleItem.id"
     )
@@ -81,7 +84,7 @@ class SaleItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     sale_id: Mapped[int] = mapped_column(ForeignKey("sales.id", ondelete="CASCADE"), index=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="RESTRICT"), index=True)
-    # dono do produto NO MOMENTO da venda: trocar o dono depois não reescreve o passado
+    # quem vendeu: cópia de Sale.seller_id (todos os itens de uma venda são da mesma pessoa)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("owners.id", ondelete="RESTRICT"), index=True)
     product_name: Mapped[str] = mapped_column(String(160))
     product_code: Mapped[str] = mapped_column(String(40))

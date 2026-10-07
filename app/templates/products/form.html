@@ -8,13 +8,6 @@
 <form method="post" class="panel form-narrow" novalidate><div class="body">
   {{ csrf() }}
   {{ field('Nome do produto', 'name', v, error_field, product.name if product else '', required=true, attrs='autofocus maxlength="160"') }}
-  {% if owners %}
-  <div class="field"><label for="f-owner">De quem é o produto</label>
-    <select id="f-owner" name="owner" required class="{{ 'invalid' if error_field == 'owner' }}">
-      <option value="" disabled {{ 'selected' if not (v.get('owner') or (product and product.owner_id)) }}>Escolha uma pessoa</option>
-      {% for o in owners %}<option value="{{ o.id }}" {{ 'selected' if (v.get('owner') or (product.owner_id|string if product and product.owner_id else '')) == o.id|string }}>{{ o.name }}</option>{% endfor %}</select>
-    {% if product %}<p class="help">Trocar o dono vale só para as próximas vendas; as antigas continuam com quem vendeu.</p>{% endif %}</div>
-  {% endif %}
   <label class="check stock-toggle"><input type="checkbox" name="track_stock" id="f-track" {% if tracked %}checked{% endif %}>
     <span><strong>Controlar o estoque deste produto</strong>
     <span class="hint">Ligado: cada venda baixa a quantidade e avisa quando acabar. Desligado: vende sem limite, sem contar.</span></span></label>

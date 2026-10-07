@@ -17,14 +17,14 @@ from app.services import sales as sale_svc
 from app.services import stock
 from app.services.sales import ItemInput, SaleInput
 
-from .conftest import TODAY
+from .conftest import TODAY, owned, create_sale_for
 from .test_web import app, client, db, post, post_json  # noqa: F401  (fixtures)
 
 
 def sell(session, product, qty=1, **kw):
     kw.setdefault("paid_cents", product.price_cents * qty)
     kw.setdefault("payment_method", "pix")
-    return sale_svc.create_sale(session, SaleInput(items=[ItemInput(product.id, qty)], **kw))
+    return create_sale_for(session, SaleInput(items=[ItemInput(product.id, qty)], **kw))
 
 
 def movement_sum(session, product):
@@ -64,14 +64,10 @@ def test_delete_unknown_sale(session):
 # ── excluir pessoa ──────────────────────────────────────────────────────────
 def test_owner_can_be_deleted_only_when_unused(session):
     free, busy = own.create_owner(session, "Livre"), own.create_owner(session, "Ocupada")
-    p = pvc.create_product(session, pvc.ProductInput(name="X", price_cents=100, initial_stock=5, owner_id=busy.id))
-    with pytest.raises(BusinessError, match="1 produto"):
-        own.delete_owner(session, busy.id)
+    p = pvc.create_product(session, pvc.ProductInput(name="X", price_cents=100, initial_stock=5))
     assert own.delete_owner(session, free.id) == "Livre" and session.get(Owner, free.id) is None
-    sell(session, p, 1)
-    other = own.create_owner(session, "Outra")
-    pvc.update_product(session, p.id, pvc.ProductInput(name="X", price_cents=100, owner_id=other.id))   # o produto muda de dono
-    with pytest.raises(BusinessError, match="1 item"):                               # sem produto, mas com venda no histórico
+    sell(session, p, 1, seller_id=busy.id)
+    with pytest.raises(BusinessError, match="1 venda"):                              # tem venda no histórico: só desativar
         own.delete_owner(session, busy.id)
 
 
@@ -79,8 +75,8 @@ def test_owner_can_be_deleted_only_when_unused(session):
 @pytest.fixture
 def shop(client, db):
     ana = own.create_owner(db, "Ana")
-    p = pvc.create_product(db, pvc.ProductInput(name="Vestido", price_cents=10000, cost_cents=4000, initial_stock=10, owner_id=ana.id))
-    gone = pvc.create_product(db, pvc.ProductInput(name="Fora de linha", price_cents=5000, cost_cents=1000, initial_stock=10, owner_id=ana.id))
+    p = owned(pvc.create_product(db, pvc.ProductInput(name="Vestido", price_cents=10000, cost_cents=4000, initial_stock=10)), ana)
+    gone = owned(pvc.create_product(db, pvc.ProductInput(name="Fora de linha", price_cents=5000, cost_cents=1000, initial_stock=10)), ana)
     c = csvc.create_customer(db, csvc.CustomerInput(name="Marina"))
     return ana, p, gone, c
 
@@ -88,7 +84,7 @@ def shop(client, db):
 def new_sale(client, shop, items=None, **extra):
     ana, p, gone, c = shop
     items = items or [{"product_id": p.id, "quantity": 2, "price": "90"}]
-    r = post_json(client, "/vendas/nova", {"items": items, "customer_id": c.id, "paid": "50", "payment_method": "pix",
+    r = post_json(client, "/vendas/nova", {"items": items, "customer_id": c.id, "paid": "50", "payment_method": "pix", "seller_id": ana.id,
                                            "due_date": (TODAY + timedelta(days=9)).isoformat(), "notes": "entregar sexta", **extra})
     return int(r.get_json()["redirect"].rsplit("/", 1)[1])
 

@@ -27,7 +27,6 @@ class ProductInput:
     description: str | None = None
     active: bool = True
     initial_stock: int = 0  # só na criação
-    owner_id: int | None = None  # de quem é o produto
     track_stock: bool = True     # False: vende sem controlar quantidade
 
 
@@ -67,19 +66,6 @@ def _category(session: Session, name: str | None) -> Category | None:
     return category
 
 
-def _owner(session: Session, owner_id: int | None, current: int | None) -> int | None:
-    """Com pessoas cadastradas, todo produto precisa ter dono. Sem pessoas, o campo fica livre."""
-    from ..models import Owner
-    if owner_id is None:
-        if session.scalar(select(func.count()).select_from(Owner).where(Owner.active.is_(True))):
-            raise BusinessError("Escolha de quem é o produto.", field="owner")
-        return None
-    owner = session.get(Owner, owner_id)
-    if owner is None or (not owner.active and owner_id != current):
-        raise BusinessError("Escolha uma pessoa válida para o produto.", field="owner")
-    return owner.id
-
-
 def _next_code(session: Session) -> str:
     last = session.scalar(select(func.max(Product.id))) or 0
     number = last + 1
@@ -117,7 +103,6 @@ def _fill(session: Session, product: Product, data: ProductInput, user_id: int |
     product.description = _clean(data.description)
     product.active = data.active
     product.category = _category(session, data.category_name)
-    product.owner_id = _owner(session, data.owner_id, product.owner_id)
 
 
 def create_product(session: Session, data: ProductInput, user_id: int | None = None) -> Product:

@@ -20,7 +20,7 @@
     <thead><tr><th>Venda</th><th>Cliente</th><th>Vencimento</th><th class="right">Total</th><th class="right">Pago</th><th class="right">Falta pagar</th><th>Situação</th></tr></thead>
     <tbody>{% for s in page.items %}
     <tr class="row-link" data-href="{{ url_for('sales.detail', sale_id=s.id) }}">
-      <td><a href="{{ url_for('sales.detail', sale_id=s.id) }}">#{{ s.id }}</a><span class="sub">{{ s.sale_date|data }}</span></td>
+      <td><a href="{{ url_for('sales.detail', sale_id=s.id) }}">#{{ s.id }}</a><span class="sub">{{ s.sale_date|data }}{% if s.seller %} · {{ s.seller.name }}{% endif %}</span></td>
       <td>{{ s.customer.name if s.customer else 'Consumidor' }}</td>
       <td>{{ due(s) }}</td>
       <td class="right money">{{ s.total_cents|brl }}</td>

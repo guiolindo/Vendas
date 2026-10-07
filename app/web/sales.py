@@ -68,7 +68,7 @@ def _prefill(raw: str) -> dict | None:
         row = customer_repo.summary(db(), old.customer_id, clock.today())
         customer = {"id": old.customer_id, "name": old.customer.name, "phone": old.customer.phone or "",
                     "pending_cents": row.pending, "overdue_cents": row.overdue}
-    return {"number": old.id, "items": items, "skipped": skipped, "customer": customer,
+    return {"number": old.id, "seller": old.seller_id, "items": items, "skipped": skipped, "customer": customer,
             "discount": f"{old.discount_cents // 100},{old.discount_cents % 100:02d}" if old.discount_cents else "",
             "notes": old.notes or ""}
 
@@ -107,15 +107,27 @@ def edit(sale_id: int):
     if request.method == "POST":
         f = Form(request.form)
         try:
+            kw = {"seller_id": f.optional_int("seller_id")} if "seller_id" in request.form else {}
             svc.update_sale(db(), sale_id, f.optional_int("customer_id"), f.date("due_date", "Vencimento"),
-                            f.text("notes") or None)
+                            f.text("notes") or None, **kw)
         except BusinessError as e:
             flash(e.message, "error")
-            return render_template("sales/edit.html", sale=sale, values=request.form, error_field=e.field), 422
+            return render_template("sales/edit.html", sale=sale, values=request.form, error_field=e.field,
+                                   customers=_active_customers(), owners=_owners_for(sale)), 422
         flash("Venda atualizada.", "success")
         return redirect(url_for("sales.detail", sale_id=sale_id))
-    customers = list(db().scalars(select(Customer).where(Customer.active.is_(True)).order_by(Customer.name)))
-    return render_template("sales/edit.html", sale=sale, values={}, error_field=None, customers=customers)
+    return render_template("sales/edit.html", sale=sale, values={}, error_field=None,
+                           customers=_active_customers(), owners=_owners_for(sale))
+
+
+def _active_customers():
+    return list(db().scalars(select(Customer).where(Customer.active.is_(True)).order_by(Customer.name)))
+
+
+def _owners_for(sale):
+    """Pessoas para escolher como vendedora: as ativas, mais a atual da venda mesmo que esteja inativa."""
+    from ..services import owners as owner_svc
+    return [o for o in owner_svc.list_owners(db()) if o.active or o.id == sale.seller_id]
 
 
 @bp.post("/vendas/<int:sale_id>/pagamentos")

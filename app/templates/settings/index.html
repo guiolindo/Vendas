@@ -8,7 +8,7 @@
   <div class="field"><label for="f-{{ key }}">{{ label }}{% if key != 'business_name' %} <span class="hint">(opcional)</span>{% endif %}</label>
     <input id="f-{{ key }}" name="{{ key }}" value="{{ values.get(key, '') }}" maxlength="{{ maxlen }}" class="{{ 'invalid' if error_field == key }}" {% if key == 'business_name' %}required{% endif %}></div>
   {% endfor %}
-  <label style="font-weight:400"><input type="checkbox" name="show_seller" {% if values.get('show_seller') %}checked{% endif %}> Mostrar quem vendeu (a pessoa dona do produto) no comprovante</label>
+  <label style="font-weight:400"><input type="checkbox" name="show_seller" {% if values.get('show_seller') %}checked{% endif %}> Mostrar quem vendeu no comprovante</label>
   <label style="font-weight:400;margin-top:.75rem;display:block"><input type="checkbox" name="track_stock" {% if values.get('track_stock') %}checked{% endif %}> Controlar o estoque dos produtos novos</label>
   <p class="help">Desligado, você vende sem contar quantidade: nada baixa nem acaba. Cada produto ainda pode ser ajustado na hora de cadastrar ou editar.</p>
   <div class="form-foot"><button class="btn primary" type="submit">Salvar</button></div>

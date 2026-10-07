@@ -14,25 +14,25 @@ from app.services import sales as sale_svc
 from app.services import stock
 from app.services.sales import ItemInput, SaleInput
 
-from .conftest import TODAY
+from .conftest import OWNER_OF, TODAY, create_sale_for, owned
 
 
 def sell(session, product, qty=1, price=None, **kw):
     kw.setdefault("paid_cents", (price or product.price_cents) * qty)
     kw.setdefault("payment_method", "pix")
-    return sale_svc.create_sale(session, SaleInput(items=[ItemInput(product.id, qty, price)], **kw))
+    return create_sale_for(session, SaleInput(items=[ItemInput(product.id, qty, price)], **kw))
 
 
 def edit_cost(session, product, cost, price=None):
     pvc.update_product(session, product.id, pvc.ProductInput(name=product.name, price_cents=price or product.price_cents,
-                                                              cost_cents=cost, owner_id=product.owner_id), user_id=None)
+                                                              cost_cents=cost), user_id=None)
     session.refresh(product)
 
 
 @pytest.fixture
 def item(session):
     ana = own.create_owner(session, "Ana")
-    return pvc.create_product(session, pvc.ProductInput(name="Vestido", price_cents=10000, cost_cents=4000, initial_stock=50, owner_id=ana.id))
+    return owned(pvc.create_product(session, pvc.ProductInput(name="Vestido", price_cents=10000, cost_cents=4000, initial_stock=50)), ana)
 
 
 # ── 1. mudar o custo NÃO mexe no passado ────────────────────────────────────
@@ -41,7 +41,7 @@ def test_changing_cost_leaves_every_past_statistic_untouched(session, item):
     snapshot = lambda: (
         mg.sale_margin(session.get(type(old), old.id)).amount,
         dashboard.build(session, TODAY).margin_month.amount,
-        dashboard.build_for_owner(session, TODAY, item.owner_id).margin_month.amount,
+        dashboard.build_for_owner(session, TODAY, OWNER_OF[item.id]).margin_month.amount,
         [(p.name, p.amount) for p in charts.build(session, TODAY, None, "mes").margin_products],
         [(r["name"], r["margin"]) for r in reports.build(session, "produtos", reports.ReportParams(), TODAY).rows],
         reports.build(session, "vendas", reports.ReportParams(), TODAY).totals["margin"],
@@ -180,7 +180,6 @@ def test_purchases_report_lists_costs_totals_and_skips_voided(session, item):
     assert ("Compra", 10, 5000, 50000) in kinds and ("Compra", 4, None, None) in kinds and ("Estoque inicial", 50, 4000, 200000) in kinds
     assert all(x[1] != 3 for x in kinds)                                         # a compra excluída não aparece
     assert r.totals["qty"] == 64 and r.totals["total"] == 250000
-    assert reports.build(session, "compras", reports.ReportParams(owner_id=item.owner_id + 99), TODAY).rows == []
     assert "Compras de mercadoria" in reports.CATALOG["compras"][0]
 
 

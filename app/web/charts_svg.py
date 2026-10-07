@@ -178,7 +178,7 @@ def aging_chart(data: ChartData) -> Markup:
 def margin_chart(data: ChartData) -> Markup:
     items = []
     for p in data.margin_products:
-        color = owner_color(data, p.owner_id) if not data.chosen else owner_color(data, data.chosen.id)
+        color = owner_color(data, data.chosen.id) if data.chosen else "var(--c-sold)"   # o mesmo produto é vendido pelas duas pessoas
         pct = f"{p.percent:.1f}".replace(".", ",") + "%" if p.percent is not None else ""
         items.append((p.name, p.amount, color, pct))
     return hbars(items, "Margem por produto", "Os produtos que mais deram lucro no período.")

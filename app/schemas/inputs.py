@@ -25,7 +25,6 @@ def product_from_form(data: Mapping[str, str], creating: bool = False) -> Produc
         description=f.text("description") or None,
         active=True if creating else f.flag("active"),
         initial_stock=f.integer("initial_stock", "Estoque inicial") if creating else 0,
-        owner_id=f.optional_int("owner"),
         track_stock=f.flag("track_stock"),
     )
 
@@ -81,4 +80,5 @@ def sale_from_json(payload: dict) -> SaleInput:
         payment_method=f.text("payment_method") or None,
         due_date=f.date("due_date", "Vencimento"), sale_date=f.date("sale_date", "Data da venda"),
         notes=f.text("notes") or None, client_token=f.text("client_token") or None,
+        seller_id=f.optional_int("seller_id"),
     )

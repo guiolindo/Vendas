@@ -2,7 +2,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from sqlalchemy import func, select
 
 from ..errors import BusinessError
-from ..models import Product
+from ..models import Sale
 from ..services import owners as svc
 from .helpers import audit_event, db, handle_business_errors
 
@@ -11,7 +11,7 @@ bp = Blueprint("owners", __name__, url_prefix="/pessoas")
 
 @bp.get("")
 def index():
-    counts = dict(db().execute(select(Product.owner_id, func.count()).group_by(Product.owner_id)).all())
+    counts = dict(db().execute(select(Sale.seller_id, func.count()).where(Sale.seller_id.is_not(None)).group_by(Sale.seller_id)).all())
     return render_template("owners/index.html", owners=svc.list_owners(db()), counts=counts)
 
 
@@ -46,5 +46,5 @@ def delete(owner_id: int):
 def toggle(owner_id: int):
     active = request.form.get("active") == "1"
     svc.set_owner_active(db(), owner_id, active)
-    flash("Pessoa reativada." if active else "Pessoa desativada. Ela não recebe produtos novos, mas o histórico continua.", "success")
+    flash("Pessoa reativada." if active else "Pessoa desativada: some da hora de vender, mas o histórico continua.", "success")
     return redirect(url_for("owners.index"))

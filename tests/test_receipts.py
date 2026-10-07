@@ -11,7 +11,7 @@ from app.services import settings as settings_svc
 from app.services import sales as sale_svc
 from app.services.sales import ItemInput, SaleInput
 
-from .conftest import TODAY
+from .conftest import TODAY, owned
 from .test_web import app, client, db, post, post_json  # noqa: F401  (fixtures)
 
 
@@ -19,15 +19,15 @@ from .test_web import app, client, db, post, post_json  # noqa: F401  (fixtures)
 def shop(client, db):
     ana, bia = own.create_owner(db, "Ana"), own.create_owner(db, "Bia")
     # custos com valores "assinatura" fáceis de procurar no papel
-    pa = pvc.create_product(db, pvc.ProductInput(name="Vestido floral", price_cents=18900, cost_cents=7531, initial_stock=20, owner_id=ana.id))
-    pb = pvc.create_product(db, pvc.ProductInput(name="Brinco <b>prata</b>", price_cents=8900, cost_cents=3177, initial_stock=20, owner_id=bia.id))
+    pa = owned(pvc.create_product(db, pvc.ProductInput(name="Vestido floral", price_cents=18900, cost_cents=7531, initial_stock=20)), ana)
+    pb = owned(pvc.create_product(db, pvc.ProductInput(name="Brinco <b>prata</b>", price_cents=8900, cost_cents=3177, initial_stock=20)), bia)
     c = csvc.create_customer(db, csvc.CustomerInput(name="Marina Souza", phone="(11) 91234-5678", document="123.456.789-00"))
     return ana, bia, pa, pb, c
 
 
 def make_sale(client, shop, paid="100", due=True, **extra):
     ana, bia, pa, pb, c = shop
-    payload = {"items": [{"product_id": pa.id, "quantity": 1}, {"product_id": pb.id, "quantity": 2}], "customer_id": c.id,
+    payload = {"items": [{"product_id": pa.id, "quantity": 1}, {"product_id": pb.id, "quantity": 2}], "customer_id": c.id, "seller_id": ana.id,
                "paid": paid, "payment_method": "pix", **extra}
     if due:
         payload["due_date"] = (TODAY + timedelta(days=10)).isoformat()
@@ -38,7 +38,7 @@ def make_sale(client, shop, paid="100", due=True, **extra):
 def test_receipt_shows_everything_the_customer_needs(client, shop):
     sid = make_sale(client, shop)
     page = client.get(f"/vendas/{sid}/comprovante").get_data(as_text=True)
-    for needle in ("Comprovante de venda", "Nº 000001", "Marina Souza", "(11) 91234-5678", "Vestido floral", "Vendido por", "Ana e Bia",
+    for needle in ("Comprovante de venda", "Nº 000001", "Marina Souza", "(11) 91234-5678", "Vestido floral", "Vendido por", "Ana",
                    "R$ 367,00", "R$ 100,00", "R$ 267,00", "Pagamentos recebidos", "Pix", "Falta pagar", "Parcial", "Documento sem valor fiscal",
                    "Reconheço dever", "Obrigado pela preferência!"):
         assert needle in page, needle

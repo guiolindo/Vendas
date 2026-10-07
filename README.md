@@ -6,7 +6,7 @@ Sistema de vendas e controle financeiro: produtos, estoque, vendas, clientes, pa
 
 - **Vendas** com pagamento total, parcial ou a prazo, estoque, clientes (extrato), cobranças por vencimento.
 - **Margem de lucro**: a pessoa informa quanto o produto custou e por quanto vendeu; o sistema mostra a margem em R$ e em % por produto, venda, pessoa e no mês (ao cadastrar o produto e na própria tela de venda, ao vivo).
-- **Duas pessoas**: cada produto tem dono; painel geral e painel simples de cada uma.
+- **Duas pessoas**: o produto não tem dono; **na hora da venda você escolhe quem está vendendo** (a escolha fica lembrada no aparelho). Painel geral e painel simples de cada pessoa.
 - **Gráficos** (`/graficos`): vendido × recebido, vendido por pessoa, margem por produto, a receber por prazo e recebido por forma de pagamento. Cada gráfico tem tabela equivalente e dica ao tocar.
 - **Excel de verdade** (`.xlsx`) de todos os relatórios, mais uma planilha única do mês com uma aba por relatório; CSV continua disponível.
 - **Comprovante impresso** da venda (folha A4 ou bobina térmica de 80 mm) e **recibo** de cada pagamento, com valor por extenso. Os dados do negócio ficam em **Configurações**.
@@ -143,7 +143,7 @@ A tela só apresenta e facilita; **toda regra está em `services/` e `domain/`**
 - **Venda é tudo-ou-nada**: venda + itens + baixa de estoque + pagamento inicial na mesma transação. Estoque nunca fica negativo (atualização condicional, segura com vendas simultâneas). Envio duplicado (duplo clique) devolve a mesma venda.
 - **O histórico não muda quando o cadastro muda**: o item da venda guarda nome, preço e custo da época.
 - **Cancelar** devolve o estoque e estorna (sem apagar) os pagamentos. Vendas e clientes com histórico não são excluídos, só desativados.
-- **Duas pessoas**: o total da venda (já com desconto) é dividido entre as pessoas na proporção dos itens de cada uma, e **cada pagamento** é repartido pelo que cada pessoa ainda tem a receber daquela venda. Em centavos inteiros: a soma das pessoas é sempre exatamente o total real, nada fica negativo e, quitada a venda, cada pessoa recebeu a sua parte. O item da venda guarda o dono **da época**, então trocar o dono de um produto só vale daí em diante.
+- **Duas pessoas**: cada venda é de quem vendeu (escolhido na venda; dá para corrigir depois, e a venda inteira muda de pessoa). O que cada pessoa vendeu, custou, rendeu, recebeu e tem a receber vem dessas vendas; a soma das pessoas é sempre exatamente o total real, em centavos inteiros. Vendas antigas, de antes dessa escolha, que misturavam itens de pessoas diferentes continuam divididas item a item, e cada pagamento é repartido pelo que cada pessoa ainda tem a receber. Cada item guarda quem vendeu **na época**.
 - **Receber do cliente** (sem escolher venda) distribui o valor da venda mais antiga para a mais nova.
 - Concorrência: SQLite usa `BEGIN IMMEDIATE`; PostgreSQL usa `SELECT … FOR UPDATE` nas vendas/pagamentos alterados.
 

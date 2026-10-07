@@ -533,3 +533,14 @@ tr.void td:last-child, tr.void td .badge { text-decoration: none; }
   .steps .step-text { flex: 1 1 calc(100% - 3rem); }
   .steps li > .btn, .steps li > .small.muted { margin-left: 2.6rem; }   /* o botão desce para baixo do texto, alinhado a ele */
 }
+
+/* Quem está vendendo: botões grandes de escolha única (sem :has, funciona em celulares mais antigos) */
+.seller-pick { border: 0; margin: 0 0 .875rem; padding: 0; min-width: 0; }
+.seller-pick legend { font-weight: 600; padding: 0; margin-bottom: .375rem; }
+.seller-pick { display: flex; flex-wrap: wrap; gap: .5rem; }
+.seller-pick legend { flex-basis: 100%; }
+.seller-opt { position: relative; flex: 1 1 8rem; margin: 0; }
+.seller-opt input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.seller-opt span { display: block; text-align: center; padding: .6rem .75rem; min-height: 2.75rem; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); font-weight: 600; color: var(--ink-2); }
+.seller-opt input:checked + span { background: var(--ink); border-color: var(--ink); color: #fff; }
+.seller-opt input:focus-visible + span { outline: 3px solid var(--primary); outline-offset: 2px; }

@@ -34,7 +34,7 @@ def _getting_started(people) -> list[dict] | None:
         return None
     has_products = bool(s.scalar(select(func.count()).select_from(Product)))
     steps = [
-        {"title": "Cadastre quem vende", "hint": "Cada produto pertence a uma pessoa, e cada uma tem o seu painel.",
+        {"title": "Cadastre quem vende", "hint": "Na hora da venda você escolhe quem está vendendo, e cada pessoa tem o seu painel.",
          "url": "owners.index", "done": bool(people), "cta": "Cadastrar pessoas"},
         {"title": "Cadastre os produtos", "hint": "Diga quanto cada um custou para você: é assim que o sistema calcula a sua margem." + (" Informe também quantos tem em estoque." if settings_svc.load(s)["track_stock"] else ""),
          "url": "products.new", "done": has_products, "cta": "Cadastrar produto"},

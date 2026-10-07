@@ -154,7 +154,7 @@ def build(session: Session, today: date, owner_id: int | None = None, period: st
                 if m.uncosted:
                     uncosted.add(item.product_id)
                     continue
-                pm = products.setdefault(item.product_id, ProductMargin(item.product_name, item.owner_id))
+                pm = products.setdefault(item.product_id, ProductMargin(item.product_name, None))
                 pm.revenue += m.revenue; pm.cost += m.cost
         for payment, part in splits:
             j = idx(payment.paid_at) if start <= payment.paid_at <= end else None

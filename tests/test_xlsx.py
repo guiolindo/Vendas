@@ -10,17 +10,17 @@ from app.services import products as pvc
 from app.services import sales as sale_svc
 from app.services.sales import ItemInput, SaleInput
 
-from .conftest import TODAY
+from .conftest import TODAY, owned, create_sale_for
 from .test_web import app, client, db, post_json  # noqa: F401  (fixtures)
 
 
 @pytest.fixture
 def data(session, make_customer):
     ana = own.create_owner(session, "Ana")
-    pa = pvc.create_product(session, pvc.ProductInput(name='=HYPERLINK("http://evil","x")', price_cents=12345, cost_cents=5000, initial_stock=20, owner_id=ana.id))
-    pb = pvc.create_product(session, pvc.ProductInput(name="Brinco", price_cents=5000, cost_cents=0, initial_stock=20, owner_id=ana.id))
+    pa = owned(pvc.create_product(session, pvc.ProductInput(name='=HYPERLINK("http://evil","x")', price_cents=12345, cost_cents=5000, initial_stock=20)), ana)
+    pb = owned(pvc.create_product(session, pvc.ProductInput(name="Brinco", price_cents=5000, cost_cents=0, initial_stock=20)), ana)
     c = make_customer("+cmd|' /C calc'!A0")
-    sale_svc.create_sale(session, SaleInput(items=[ItemInput(pa.id, 2), ItemInput(pb.id, 1)], customer_id=c.id, paid_cents=10000,
+    create_sale_for(session, SaleInput(items=[ItemInput(pa.id, 2), ItemInput(pb.id, 1)], customer_id=c.id, paid_cents=10000,
                                             payment_method="pix", due_date=TODAY + timedelta(days=5)))
     return pa, pb, c
 
@@ -33,7 +33,7 @@ def test_values_are_real_excel_types_not_text(session, data):
     rep = reports.build(session, "vendas", reports.ReportParams(), TODAY)
     ws = load(xlsx.to_xlsx([rep])).active
     header = [c.value for c in ws[4]]
-    assert header[:3] == ["Venda", "Data", "Cliente"]
+    assert header[:4] == ["Venda", "Data", "Quem vendeu", "Cliente"]
     row = {h: ws.cell(row=5, column=i + 1) for i, h in enumerate(header)}
     assert row["Venda"].value == 1 and row["Venda"].number_format == '"#"0'
     assert isinstance(row["Data"].value, (date,)) and row["Data"].number_format == "dd/mm/yyyy"
@@ -86,10 +86,10 @@ def test_package_has_one_sheet_per_report_with_valid_names(session, data):
 def web_data(db):
     """Mesmos dados, mas pela sessão do cliente web (no PostgreSQL as duas fixtures compartilhariam o banco)."""
     ana = own.create_owner(db, "Ana")
-    pa = pvc.create_product(db, pvc.ProductInput(name="Vestido", price_cents=12345, cost_cents=5000, initial_stock=20, owner_id=ana.id))
+    pa = owned(pvc.create_product(db, pvc.ProductInput(name="Vestido", price_cents=12345, cost_cents=5000, initial_stock=20)), ana)
     c = __import__("app.services.customers", fromlist=["x"])
     cust = c.create_customer(db, c.CustomerInput(name="Cliente"))
-    sale_svc.create_sale(db, SaleInput(items=[ItemInput(pa.id, 2)], customer_id=cust.id, paid_cents=10000, payment_method="pix",
+    create_sale_for(db, SaleInput(items=[ItemInput(pa.id, 2)], customer_id=cust.id, paid_cents=10000, payment_method="pix",
                                        due_date=TODAY + timedelta(days=5)))
 
 

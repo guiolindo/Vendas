@@ -11,11 +11,11 @@ from app.services import products as pvc
 from app.services import sales as sale_svc
 from app.services.sales import ItemInput, SaleInput
 
-from .conftest import TODAY
+from .conftest import TODAY, owned, create_sale_for
 
 
 def sell(session, items, **kw):
-    return sale_svc.create_sale(session, SaleInput(items=[ItemInput(p.id, q, price) for p, q, price in items], **kw))
+    return create_sale_for(session, SaleInput(items=[ItemInput(p.id, q, price) for p, q, price in items], **kw))
 
 
 @pytest.fixture
@@ -68,8 +68,8 @@ def test_net_rounding_never_loses_a_cent(session, goods, make_customer):
 
 def test_dashboard_margin_adds_up_across_people_and_general(session, goods, make_customer):
     ana, bia = own.create_owner(session, "Ana"), own.create_owner(session, "Bia")
-    pa = pvc.create_product(session, pvc.ProductInput(name="Da Ana", price_cents=10000, cost_cents=4000, initial_stock=20, owner_id=ana.id))
-    pb = pvc.create_product(session, pvc.ProductInput(name="Da Bia", price_cents=5000, cost_cents=2000, initial_stock=20, owner_id=bia.id))
+    pa = owned(pvc.create_product(session, pvc.ProductInput(name="Da Ana", price_cents=10000, cost_cents=4000, initial_stock=20)), ana)
+    pb = owned(pvc.create_product(session, pvc.ProductInput(name="Da Bia", price_cents=5000, cost_cents=2000, initial_stock=20)), bia)
     c = make_customer()
     sell(session, [(pa, 1, None), (pb, 2, None)], discount_cents=777, customer_id=c.id, due_date=TODAY + timedelta(days=3))
     sell(session, [(pa, 2, 9000)], customer_id=c.id, due_date=TODAY + timedelta(days=3))
@@ -83,8 +83,8 @@ def test_dashboard_margin_adds_up_across_people_and_general(session, goods, make
 
 def test_shares_and_margin_use_the_same_item_level_split(session, make_customer):
     ana, bia = own.create_owner(session, "Ana"), own.create_owner(session, "Bia")
-    pa = pvc.create_product(session, pvc.ProductInput(name="A", price_cents=3333, cost_cents=1000, initial_stock=9, owner_id=ana.id))
-    pb = pvc.create_product(session, pvc.ProductInput(name="B", price_cents=6667, cost_cents=1000, initial_stock=9, owner_id=bia.id))
+    pa = owned(pvc.create_product(session, pvc.ProductInput(name="A", price_cents=3333, cost_cents=1000, initial_stock=9)), ana)
+    pb = owned(pvc.create_product(session, pvc.ProductInput(name="B", price_cents=6667, cost_cents=1000, initial_stock=9)), bia)
     s = sell(session, [(pa, 1, None), (pb, 1, None)], discount_cents=1001, customer_id=make_customer().id, due_date=TODAY)
     shares, by = own.sale_shares(s), mg.margins_by_owner(s)
     assert sum(shares.values()) == s.total_cents
@@ -113,7 +113,7 @@ def test_margin_catalog_report_shows_potential_profit_in_stock(session, goods):
     assert by["Vestido"]["potential"] == 50 * 6000 and by["Vestido"]["stock_cost"] == 50 * 4000
     assert by["Sem custo"]["margin"] is None and by["Sem custo"]["potential"] is None
     assert r.rows[-1]["name"] == "Sem custo"                                               # sem custo vai para o fim, destacado
-    assert reports.to_csv(r).decode("utf-8-sig").splitlines()[1].count(";") == 9
+    assert reports.to_csv(r).decode("utf-8-sig").splitlines()[1].count(";") == 8
 
 
 def test_product_model_margin_percent(session, goods):

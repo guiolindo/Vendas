@@ -1,8 +1,9 @@
-"""Duas (ou mais) pessoas dividem o negócio; cada produto é de uma delas.
+"""Duas (ou mais) pessoas dividem o negócio; cada venda é de quem vendeu (escolhido na hora da venda).
 
 Como o dinheiro é dividido:
-  * Uma venda pode misturar produtos de pessoas diferentes. O TOTAL da venda (já com desconto)
-    é repartido entre as pessoas na proporção do valor dos itens de cada uma.
+  * Todos os itens de uma venda são da mesma pessoa (a vendedora). A divisão por item continua valendo
+    se um dia uma venda tiver itens de pessoas diferentes: o TOTAL da venda (já com desconto)
+    é repartido na proporção do valor dos itens de cada uma.
   * O que foi PAGO de uma venda é repartido na mesma proporção.
   * Cada PAGAMENTO é repartido pelo que cada pessoa ainda tem a receber daquela venda.
 Tudo em centavos inteiros: a soma das pessoas é SEMPRE exatamente o total real (nenhum centavo
@@ -66,16 +67,15 @@ def set_owner_active(session: Session, owner_id: int, active: bool) -> Owner:
 
 
 def delete_owner(session: Session, owner_id: int) -> str:
-    """Só exclui quem nunca teve produto nem venda. Senão, desative: o histórico precisa continuar de pé."""
+    """Só exclui quem nunca vendeu. Senão, desative: o histórico precisa continuar de pé."""
     with atomic(session):
         owner = session.get(Owner, owner_id)
         if owner is None:
             raise NotFound("Pessoa não encontrada.")
-        products = session.scalar(select(func.count()).select_from(Product).where(Product.owner_id == owner_id))
-        sold = session.scalar(select(func.count()).select_from(SaleItem).where(SaleItem.owner_id == owner_id))
-        if products or sold:
-            raise BusinessError(f"{owner.name} tem {products} produto(s) e {sold} item(ns) vendido(s) no histórico, então esta pessoa não pode ser "
-                                "excluída. Desative para que deixe de receber produtos novos.")
+        sold = session.scalar(select(func.count()).select_from(Sale).where(Sale.seller_id == owner_id))
+        if sold:
+            raise BusinessError(f"{owner.name} aparece em {sold} venda(s) no histórico, então esta pessoa não pode ser "
+                                "excluída. Desative para que deixe de aparecer na hora de vender.")
         name = owner.name
         session.delete(owner)
     return name

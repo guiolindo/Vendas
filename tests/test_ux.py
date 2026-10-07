@@ -119,12 +119,11 @@ def test_getting_started_guides_a_new_user_and_disappears_after_the_first_sale(c
     page = client.get("/?pessoa=geral").get_data(as_text=True)
     assert "Para começar" in page and "Cadastre quem vende" in page and "Faça a primeira venda" in page
     assert page.count('class="btn primary small"') == 1 and "Cadastrar pessoas" in page         # um único próximo passo em destaque
-    own.create_owner(db, "Ana")
-    p = pvc.create_product(db, pvc.ProductInput(name="Vestido", price_cents=10000, cost_cents=4000, initial_stock=5,
-                                                owner_id=own.list_owners(db)[0].id))
+    ana = own.create_owner(db, "Ana")
+    p = pvc.create_product(db, pvc.ProductInput(name="Vestido", price_cents=10000, cost_cents=4000, initial_stock=5))
     page = client.get("/?pessoa=geral").get_data(as_text=True)
     assert "Cadastrar produto" not in page and "Nova venda</a>" in page and "step-mark" in page
-    post_json(client, "/vendas/nova", {"items": [{"product_id": p.id, "quantity": 1}], "paid": "100", "payment_method": "pix"})
+    post_json(client, "/vendas/nova", {"items": [{"product_id": p.id, "quantity": 1}], "seller_id": ana.id, "paid": "100", "payment_method": "pix"})
     assert "Para começar" not in client.get("/?pessoa=geral").get_data(as_text=True)
 
 

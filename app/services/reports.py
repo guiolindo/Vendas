@@ -59,7 +59,7 @@ CATALOG = {
     "compras": ("Compras de mercadoria", "O que foi comprado no período: produto, quantidade, quanto custou cada unidade e o total gasto. Compras excluídas não entram."),
     "margem-produtos": ("Produtos e margem", "Quanto cada produto custou, por quanto é vendido e quanto sobra, com o lucro que ainda está parado no estoque."),
     "estoque": ("Estoque", "Saldo atual, custo e valor de venda do estoque."),
-    "pessoas": ("Resultado por pessoa", "Quanto cada pessoa vendeu, custou, rendeu, recebeu e ainda tem a receber (a parte dela em cada venda)."),
+    "pessoas": ("Resultado por pessoa", "Quanto cada pessoa vendeu, custou, rendeu, recebeu e ainda tem a receber (as vendas em que ela foi a vendedora)."),
     "movimento": ("Movimentação financeira", "Por dia: quanto foi vendido e quanto foi recebido."),
 }
 
@@ -68,11 +68,11 @@ def _sale_rows(sales: list[Sale], today: date) -> list[dict]:
     return [{
         "number": s.id, "sale_date": s.sale_date, "customer": s.customer.name if s.customer else "Consumidor",
         "due_date": s.due_date, "total": s.total_cents, "margin": margin_svc.sale_margin(s).amount, "paid": s.paid_cents,
-        "remaining": s.remaining_cents, "status": s.status,
+        "remaining": s.remaining_cents, "status": s.status, "seller": s.seller.name if s.seller else "",
     } for s in sales]
 
 
-SALE_COLS = [Column("number", "Venda", "link"), Column("sale_date", "Data", "date"), Column("customer", "Cliente"),
+SALE_COLS = [Column("number", "Venda", "link"), Column("sale_date", "Data", "date"), Column("seller", "Quem vendeu"), Column("customer", "Cliente"),
              Column("due_date", "Vencimento", "date"), Column("total", "Total", "money"),
              Column("margin", "Margem", "money"), Column("paid", "Pago", "money"), Column("remaining", "Falta pagar", "money"),
              Column("status", "Situação", "status")]
@@ -87,21 +87,21 @@ def sales_report(session: Session, p: ReportParams, today: date) -> Report:
     query = sale_repo.sales_query(f, today)
     if not p.status:
         query = query.where(ACTIVE)  # canceladas só aparecem quando filtradas
-    sales = list(session.scalars(query))
+    sales = [s for s in session.scalars(query) if not p.owner_id or s.seller_id == p.owner_id]
     rows = _sale_rows(sales, today)
     live = [r for r in rows if r["status"] != Status.CANCELADA]
     return Report("vendas", *CATALOG["vendas"], SALE_COLS, rows, _sum(live, "total", "margin", "paid", "remaining"),
-                  ("period", "customer", "status"))
+                  ("period", "customer", "owner", "status"))
 
 
 def due_report(session: Session, p: ReportParams, today: date) -> Report:
     f = SaleFilters(customer_id=p.customer_id, date_from=p.date_from, date_to=p.date_to,
                     bucket={"vencido": "vencidos", "parcial": "parciais"}.get(p.status, "abertos"),
                     amount_field="remaining")
-    sales = list(session.scalars(sale_repo.sales_query(f, today, order="due")))
+    sales = [s for s in session.scalars(sale_repo.sales_query(f, today, order="due")) if not p.owner_id or s.seller_id == p.owner_id]
     rows = _sale_rows(sales, today)
     return Report("a-receber", *CATALOG["a-receber"], SALE_COLS, rows, _sum(rows, "total", "margin", "paid", "remaining"),
-                  ("period", "customer", "due_status"))
+                  ("period", "customer", "owner", "due_status"))
 
 
 def products_report(session: Session, p: ReportParams, today: date) -> Report:
@@ -113,7 +113,6 @@ def products_report(session: Session, p: ReportParams, today: date) -> Report:
         q = q.where(Sale.sale_date <= p.date_to)
     if p.customer_id:
         q = q.where(Sale.customer_id == p.customer_id)
-    names = {o.id: o.name for o in owner_svc.list_owners(session)}
     acc: dict = {}
     for sale in session.scalars(q).unique():
         nets = margin_svc.item_nets(sale)
@@ -121,7 +120,7 @@ def products_report(session: Session, p: ReportParams, today: date) -> Report:
             if p.owner_id and item.owner_id != p.owner_id:
                 continue
             r = acc.setdefault(item.product_id, {"name": item.product_name, "code": item.product_code,
-                                                 "owner": names.get(item.owner_id, ""), "qty": 0, "revenue": 0, "cost": 0,
+                                                 "qty": 0, "revenue": 0, "cost": 0,
                                                  "m_rev": 0, "m_cost": 0})
             m = margin_svc.item_margin(item, nets[item.id])
             r["qty"] += item.quantity; r["revenue"] += nets[item.id]; r["cost"] += item.quantity * item.unit_cost_cents
@@ -130,11 +129,11 @@ def products_report(session: Session, p: ReportParams, today: date) -> Report:
     rows = []
     for r in acc.values():
         amount = r["m_rev"] - r["m_cost"]
-        rows.append({"name": r["name"], "code": r["code"], "owner": r["owner"], "qty": r["qty"], "revenue": r["revenue"],
+        rows.append({"name": r["name"], "code": r["code"], "qty": r["qty"], "revenue": r["revenue"],
                      "cost": r["cost"], "margin": amount,
                      "margin_pct": round(amount * 100 / r["m_rev"], 1) if r["m_rev"] > 0 else None})
     rows.sort(key=lambda r: (-r[key], r["name"]))
-    cols = [Column("name", "Produto"), Column("code", "Código"), Column("owner", "Pessoa"), Column("qty", "Qtd. vendida", "int"),
+    cols = [Column("name", "Produto"), Column("code", "Código"), Column("qty", "Qtd. vendida", "int"),
             Column("revenue", "Valor vendido", "money"), Column("cost", "Custo", "money"), Column("margin", "Margem", "money"),
             Column("margin_pct", "Margem %", "percent")]
     return Report("produtos", *CATALOG["produtos"], cols, rows, _sum(rows, "qty", "revenue", "cost", "margin"),
@@ -147,45 +146,39 @@ def purchases_report(session: Session, p: ReportParams, today: date) -> Report:
     q = (select(StockMovement, Product).join(Product, Product.id == StockMovement.product_id)
          .where(StockMovement.kind.in_(("inicial", "entrada")), StockMovement.voided_at.is_(None))
          .order_by(StockMovement.created_at.desc(), StockMovement.id.desc()))
-    if p.owner_id:
-        q = q.where(Product.owner_id == p.owner_id)
-    names = {o.id: o.name for o in owner_svc.list_owners(session)}
     rows = []
     for m, prod in session.execute(q):
         if not start <= m.created_at.date() <= end:
             continue
-        rows.append({"day": m.created_at.date(), "name": prod.name, "owner": names.get(prod.owner_id, ""),
+        rows.append({"day": m.created_at.date(), "name": prod.name,
                      "kind": "Estoque inicial" if m.kind == "inicial" else "Compra", "qty": m.quantity,
                      "unit_cost": m.unit_cost_cents, "total": m.total_cost_cents, "note": m.note or ""})
-    cols = [Column("day", "Data", "date"), Column("name", "Produto"), Column("owner", "Pessoa"), Column("kind", "Tipo"),
+    cols = [Column("day", "Data", "date"), Column("name", "Produto"), Column("kind", "Tipo"),
             Column("qty", "Qtd.", "int"), Column("unit_cost", "Custo un.", "money"), Column("total", "Total gasto", "money"),
             Column("note", "Observação")]
     return Report("compras", *CATALOG["compras"], cols, rows, _sum([{k: (v or 0) for k, v in r.items()} for r in rows], "qty", "total"),
-                  ("period", "owner"))
+                  ("period",))
 
 
 def margin_report(session: Session, p: ReportParams, today: date) -> Report:
     """Catálogo com custo, preço, margem e o lucro que ainda está no estoque."""
-    names = {o.id: o.name for o in owner_svc.list_owners(session)}
     q = select(Product).where(Product.active.is_(True)).order_by(Product.name)
-    if p.owner_id:
-        q = q.where(Product.owner_id == p.owner_id)
     rows = []
     for x in session.scalars(q):
         has_cost = x.cost_cents > 0
-        rows.append({"name": x.name, "owner": names.get(x.owner_id, ""), "cost": x.cost_cents if has_cost else None,
+        rows.append({"name": x.name, "cost": x.cost_cents if has_cost else None,
                      "price": x.price_cents, "margin": x.margin_cents if has_cost else None, "margin_pct": x.margin_percent,
                      "stock": x.stock_qty if x.track_stock else None,
                      "stock_cost": x.stock_qty * x.cost_cents if x.track_stock else None,
                      "stock_value": x.stock_qty * x.price_cents if x.track_stock else None,
                      "potential": x.stock_qty * x.margin_cents if has_cost and x.track_stock else None})
     rows.sort(key=lambda r: (r["margin_pct"] is None, -(r["margin_pct"] or 0), r["name"]))
-    cols = [Column("name", "Produto"), Column("owner", "Pessoa"), Column("cost", "Custo", "money"), Column("price", "Preço", "money"),
+    cols = [Column("name", "Produto"), Column("cost", "Custo", "money"), Column("price", "Preço", "money"),
             Column("margin", "Margem", "money"), Column("margin_pct", "Margem %", "percent"), Column("stock", "Em estoque", "int"),
             Column("stock_cost", "Estoque ao custo atual", "money"), Column("stock_value", "Estoque a preço", "money"),
             Column("potential", "Lucro no estoque", "money")]
     return Report("margem-produtos", *CATALOG["margem-produtos"], cols, rows,
-                  _sum([{k: (v or 0) for k, v in r.items()} for r in rows], "stock_cost", "stock_value", "potential"), ("owner",))
+                  _sum([{k: (v or 0) for k, v in r.items()} for r in rows], "stock_cost", "stock_value", "potential"), ())
 
 
 def customers_report(session: Session, p: ReportParams, today: date) -> Report:
@@ -223,15 +216,13 @@ def stock_report(session: Session, p: ReportParams, today: date) -> Report:
     q = select(Product).where(Product.active.is_(True), Product.track_stock.is_(True)).order_by(Product.name)
     if p.status == "baixo":
         q = q.where(Product.stock_qty <= Product.min_stock)
-    if p.owner_id:
-        q = q.where(Product.owner_id == p.owner_id)
     rows = [{"name": x.name, "code": x.code, "stock": x.stock_qty, "min": x.min_stock, "unit": x.unit,
              "cost_value": x.stock_qty * x.cost_cents, "sale_value": x.stock_qty * x.price_cents}
             for x in session.scalars(q)]
     cols = [Column("name", "Produto"), Column("code", "Código"), Column("stock", "Em estoque", "int"),
             Column("min", "Mínimo", "int"), Column("unit", "Un."), Column("cost_value", "Valor ao custo atual", "money"),
             Column("sale_value", "Valor de venda", "money")]
-    return Report("estoque", *CATALOG["estoque"], cols, rows, _sum(rows, "cost_value", "sale_value"), ("owner", "stock_status"))
+    return Report("estoque", *CATALOG["estoque"], cols, rows, _sum(rows, "cost_value", "sale_value"), ("stock_status",))
 
 
 def movement_report(session: Session, p: ReportParams, today: date) -> Report:
@@ -273,7 +264,7 @@ def owners_report(session: Session, p: ReportParams, today: date) -> Report:
         paid_by = {k: sum(part[k] for _, part in splits) for k in shares}
         margins = margin_svc.margins_by_owner(sale)
         for oid, share in shares.items():
-            row = acc.setdefault(oid, blank(names.get(oid, "Produtos sem dono")))
+            row = acc.setdefault(oid, blank(names.get(oid, "Sem vendedor")))
             row["received"] += got[oid]
             row["receivable"] += (share - paid_by[oid]) if sale.paid_cents < sale.total_cents else 0
             if start <= sale.sale_date <= end:

@@ -8,7 +8,6 @@ from ..repositories import products as repo
 from ..repositories.common import paginate
 from ..schemas.inputs import product_from_form
 from ..schemas.parsing import Form
-from ..services import owners as owner_svc
 from ..services import settings as settings_svc
 from ..services import products as svc
 from ..services import stock
@@ -16,7 +15,7 @@ from .helpers import (audit_event, current_user_id, db, handle_business_errors, 
                       remembered_args)
 
 bp = Blueprint("products", __name__, url_prefix="/produtos")
-FILTERS = ("q", "categoria", "status", "estoque", "ordem", "dir", "dono")
+FILTERS = ("q", "categoria", "status", "estoque", "ordem", "dir")
 
 
 @bp.get("")
@@ -24,11 +23,10 @@ def index():
     args, remembered = remembered_args("produtos", FILTERS)
     page = paginate(db(), repo.products_query(
         args.get("q", ""), int(args["categoria"]) if args.get("categoria", "").isdigit() else None,
-        args.get("status", ""), args.get("estoque", ""), args.get("ordem", "nome"), args.get("dir", "asc"),
-        int(args["dono"]) if args.get("dono", "").isdigit() and int(args["dono"]) < 2**31 else None),
+        args.get("status", ""), args.get("estoque", ""), args.get("ordem", "nome"), args.get("dir", "asc")),
         page_number(), 25)
     return render_template("products/list.html", page=page, args=args, remembered=remembered,
-                           categories=repo.categories(db()), owners=owner_svc.list_owners(db()))
+                           categories=repo.categories(db()))
 
 
 @bp.route("/novo", methods=["GET", "POST"])
@@ -39,14 +37,14 @@ def new():
         except BusinessError as e:
             flash(e.message, "error")
             return render_template("products/form.html", product=None, values=request.form,
-                                   error_field=e.field, categories=repo.categories(db()), owners=owner_svc.list_owners(db(), only_active=True),
+                                   error_field=e.field, categories=repo.categories(db()),
                                    track_default=settings_svc.load(db())["track_stock"]), 422
         flash(f"Produto “{product.name}” cadastrado.", "success")
         if request.form.get("again"):
             return redirect(url_for("products.new"))
         return redirect(url_for("products.detail", product_id=product.id))
     return render_template("products/form.html", product=None, values={}, error_field=None,
-                           categories=repo.categories(db()), owners=owner_svc.list_owners(db(), only_active=True),
+                           categories=repo.categories(db()),
                                    track_default=settings_svc.load(db())["track_stock"])
 
 
@@ -96,12 +94,12 @@ def edit(product_id: int):
         except BusinessError as e:
             flash(e.message, "error")
             return render_template("products/form.html", product=product, values=request.form,
-                                   error_field=e.field, categories=repo.categories(db()), owners=owner_svc.list_owners(db(), only_active=True),
+                                   error_field=e.field, categories=repo.categories(db()),
                                    track_default=settings_svc.load(db())["track_stock"]), 422
         flash("Alterações salvas.", "success")
         return redirect(url_for("products.detail", product_id=product_id))
     return render_template("products/form.html", product=product, values={}, error_field=None,
-                           categories=repo.categories(db()), owners=owner_svc.list_owners(db(), only_active=True),
+                           categories=repo.categories(db()),
                                    track_default=settings_svc.load(db())["track_stock"])
 
 

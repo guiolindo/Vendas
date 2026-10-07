@@ -9,7 +9,7 @@ from app.services import products as pvc
 from app.services import sales as sale_svc
 from app.services.sales import ItemInput, SaleInput
 
-from .conftest import TODAY
+from .conftest import TODAY, owned, create_sale_for
 
 
 def test_periods_make_the_right_buckets():
@@ -33,13 +33,13 @@ def test_aging_buckets():
 @pytest.fixture
 def world(session, make_customer):
     ana, bia = own.create_owner(session, "Ana"), own.create_owner(session, "Bia")
-    pa = pvc.create_product(session, pvc.ProductInput(name="Da Ana", price_cents=10000, cost_cents=4000, initial_stock=99, owner_id=ana.id))
-    pb = pvc.create_product(session, pvc.ProductInput(name="Da Bia", price_cents=5000, cost_cents=2000, initial_stock=99, owner_id=bia.id))
-    nocost = pvc.create_product(session, pvc.ProductInput(name="Sem custo", price_cents=1000, initial_stock=99, owner_id=bia.id))
+    pa = owned(pvc.create_product(session, pvc.ProductInput(name="Da Ana", price_cents=10000, cost_cents=4000, initial_stock=99)), ana)
+    pb = owned(pvc.create_product(session, pvc.ProductInput(name="Da Bia", price_cents=5000, cost_cents=2000, initial_stock=99)), bia)
+    nocost = owned(pvc.create_product(session, pvc.ProductInput(name="Sem custo", price_cents=1000, initial_stock=99)), bia)
     c = make_customer()
 
     def mk(days_ago, items, paid=0, method="pix", due=5):
-        s = sale_svc.create_sale(session, SaleInput(
+        s = create_sale_for(session, SaleInput(
             items=[ItemInput(p.id, q) for p, q in items], customer_id=c.id, sale_date=TODAY - timedelta(days=days_ago),
             paid_cents=paid, payment_method=method if paid else None, due_date=TODAY - timedelta(days=days_ago) + timedelta(days=due)))
         return s
@@ -106,11 +106,11 @@ from .test_web import app, client, db, post_json  # noqa: E402,F401  (fixtures)
 def web_world(client, db):
     from app.services import customers as csvc
     ana, bia = own.create_owner(db, "Ana"), own.create_owner(db, "Bia")
-    pa = pvc.create_product(db, pvc.ProductInput(name="Vestido <b>", price_cents=10000, cost_cents=4000, initial_stock=50, owner_id=ana.id))
-    pb = pvc.create_product(db, pvc.ProductInput(name="Brinco", price_cents=5000, cost_cents=2000, initial_stock=50, owner_id=bia.id))
+    pa = owned(pvc.create_product(db, pvc.ProductInput(name="Vestido <b>", price_cents=10000, cost_cents=4000, initial_stock=50)), ana)
+    pb = owned(pvc.create_product(db, pvc.ProductInput(name="Brinco", price_cents=5000, cost_cents=2000, initial_stock=50)), bia)
     cliente = csvc.create_customer(db, csvc.CustomerInput(name="Cli"))
     post_json(client, "/vendas/nova", {"items": [{"product_id": pa.id, "quantity": 1}, {"product_id": pb.id, "quantity": 2}], "paid": "100",
-                                       "payment_method": "pix", "customer_id": cliente.id,
+                                       "payment_method": "pix", "customer_id": cliente.id, "seller_id": ana.id,
                                        "due_date": (TODAY + timedelta(days=3)).isoformat()})
     return ana, bia
 

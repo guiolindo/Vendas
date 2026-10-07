@@ -15,7 +15,7 @@ from ..domain.money import MAX_CENTS, format_brl, percent_of
 from ..domain.payment_methods import METHODS
 from ..domain.text import limited
 from ..errors import BusinessError, NotFound
-from ..models import Customer, Payment, Product, Sale, SaleItem, StockMovement
+from ..models import Customer, Owner, Payment, Product, Sale, SaleItem, StockMovement
 from .stock import MAX_QTY, apply_movement
 
 
@@ -38,6 +38,7 @@ class SaleInput:
     sale_date: date | None = None
     notes: str | None = None
     client_token: str | None = None
+    seller_id: int | None = None   # quem está vendendo (obrigatório quando há pessoas cadastradas)
 
 
 def compute_totals(subtotal: int, discount_cents: int = 0, discount_percent: Decimal | None = None) -> tuple[int, int]:
@@ -58,6 +59,21 @@ def compute_totals(subtotal: int, discount_cents: int = 0, discount_percent: Dec
     if total <= 0:
         raise BusinessError("O total da venda precisa ser maior que zero.", field="discount")
     return discount, total
+
+
+_KEEP = object()
+
+
+def _seller(session: Session, seller_id: int | None, current: int | None = None) -> int | None:
+    """Quem vendeu. Com pessoas cadastradas, é obrigatório escolher uma."""
+    if seller_id is None:
+        if session.scalar(select(Owner.id).where(Owner.active.is_(True)).limit(1)) is not None:
+            raise BusinessError("Escolha quem está vendendo.", field="seller")
+        return None
+    owner = session.get(Owner, seller_id)
+    if owner is None or (not owner.active and seller_id != current):
+        raise BusinessError("Escolha uma pessoa válida para a venda.", field="seller")
+    return owner.id
 
 
 def create_sale(session: Session, data: SaleInput, user_id: int | None = None) -> Sale:
@@ -145,8 +161,10 @@ def _create_sale(session: Session, data: SaleInput, user_id: int | None = None) 
         if data.due_date is not None and data.due_date < sale_date:
             raise BusinessError("O vencimento não pode ser antes da data da venda.", field="due_date")
 
+        seller_id = _seller(session, data.seller_id)
         sale = Sale(
             client_token=data.client_token or None,
+            seller_id=seller_id,
             customer_id=customer.id if customer else None,
             sale_date=sale_date,
             due_date=data.due_date,
@@ -158,7 +176,7 @@ def _create_sale(session: Session, data: SaleInput, user_id: int | None = None) 
         )
         for product, qty, price in lines:
             sale.items.append(SaleItem(
-                product_id=product.id, owner_id=product.owner_id, product_name=product.name, product_code=product.code,
+                product_id=product.id, owner_id=seller_id, product_name=product.name, product_code=product.code,
                 unit=product.unit, quantity=qty, unit_price_cents=price,
                 unit_cost_cents=product.cost_cents, total_cents=qty * price,
             ))
@@ -179,8 +197,8 @@ def _create_sale(session: Session, data: SaleInput, user_id: int | None = None) 
 
 
 def update_sale(session: Session, sale_id: int, customer_id: int | None, due_date: date | None,
-                notes: str | None) -> Sale:
-    """Corrige cliente, vencimento e observações. Itens e valores não mudam:
+                notes: str | None, seller_id=_KEEP) -> Sale:
+    """Corrige quem vendeu, cliente, vencimento e observações. Itens e valores não mudam:
     para isso, cancele e registre a venda de novo (o histórico fica íntegro)."""
     limited(notes, 500, "Observação", "notes")
     with atomic(session):
@@ -202,6 +220,10 @@ def update_sale(session: Session, sale_id: int, customer_id: int | None, due_dat
                 raise BusinessError("Informe o vencimento: ainda há valor a receber.", field="due_date")
         if due_date is not None and due_date < sale.sale_date:
             raise BusinessError("O vencimento não pode ser antes da data da venda.", field="due_date")
+        if seller_id is not _KEEP and seller_id != sale.seller_id:
+            sale.seller_id = _seller(session, seller_id, sale.seller_id)
+            for item in sale.items:
+                item.owner_id = sale.seller_id       # a divisão por pessoa segue quem vendeu
         sale.customer_id = customer.id if customer else None
         sale.due_date = due_date
         sale.notes = (notes or "").strip() or None

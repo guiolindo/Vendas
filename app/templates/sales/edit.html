@@ -2,9 +2,14 @@
 {% block title %}Corrigir venda #{{ sale.id }}{% endblock %}
 {% block content %}
 <div class="page-head"><div><a class="crumb" href="{{ url_for('sales.detail', sale_id=sale.id) }}">‹ Venda #{{ sale.id }}</a><h1>Corrigir venda #{{ sale.id }}</h1>
-  <p>Cliente, vencimento e observações. Produtos e valores não mudam: para isso, cancele e registre a venda de novo.</p></div></div>
+  <p>Quem vendeu, cliente, vencimento e observações. Produtos e valores não mudam: para isso, cancele e registre a venda de novo.</p></div></div>
 <form method="post" class="panel form-narrow" novalidate><div class="body">
   {{ csrf() }}
+  {% if owners %}<div class="field"><label for="seller_id">Quem vendeu</label>
+    <select id="seller_id" name="seller_id" class="{{ 'invalid' if error_field == 'seller' }}">
+      {% if not sale.seller_id %}<option value="" selected disabled>Escolha uma pessoa</option>{% endif %}
+      {% for o in owners %}<option value="{{ o.id }}" {{ 'selected' if (values.get('seller_id') or sale.seller_id|string) == o.id|string }}>{{ o.name }}</option>{% endfor %}</select>
+    <p class="help">Trocar muda a quem pertence esta venda inteira, inclusive o que já foi pago.</p></div>{% endif %}
   <div class="field"><label for="customer_id">Cliente</label>
     <select id="customer_id" name="customer_id" class="{{ 'invalid' if error_field == 'customer' }}"><option value="">Consumidor (sem cadastro)</option>
       {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if (values.get('customer_id') or sale.customer_id|string) == c.id|string }}>{{ c.name }}</option>{% endfor %}</select></div>
