@@ -1,0 +1,88 @@
+{% extends "base.html" %}{% from "_macros.html" import icon %}
+{% block title %}Gráficos{% endblock %}
+{% block content %}
+{% set money = d.sold|sum %}
+<div class="page-head"><div><h1>Gráficos{% if chosen %} de {{ chosen.name }}{% endif %}</h1>
+  <p>{{ periods[d.period] }}, de {{ d.start|data }} a {{ d.end|data }}{% if chosen %} · só a parte de {{ chosen.name }}{% endif %}</p></div></div>
+
+<form class="chart-filters" method="get" aria-label="Filtros dos gráficos">
+  {% if people %}<div class="field"><label for="pessoa">Pessoa</label><select id="pessoa" name="pessoa" data-autosubmit>
+    <option value="geral" {{ 'selected' if not chosen }}>Geral</option>
+    {% for o in people %}<option value="{{ o.id }}" {{ 'selected' if chosen and chosen.id == o.id }}>{{ o.name }}</option>{% endfor %}</select></div>{% endif %}
+  <div class="field"><label for="periodo">Período</label><select id="periodo" name="periodo" data-autosubmit>
+    {% for k, label in periods.items() %}<option value="{{ k }}" {{ 'selected' if d.period == k }}>{{ label }}</option>{% endfor %}</select></div>
+  <noscript><button class="btn" type="submit">Aplicar</button></noscript>
+</form>
+
+{% if d.empty and not d.aging|sum %}
+<div class="panel"><div class="empty"><strong>Ainda não há movimento neste período.</strong>Registre vendas para ver os gráficos.</div></div>
+{% else %}
+<div class="charts-grid">
+
+  <section class="panel chart-card">
+    <header><h2>Vendido e recebido</h2></header>
+    <div class="body">
+      <ul class="legend"><li><span class="key" style="--k: var(--c-sold)"></span>Vendido</li><li><span class="key line" style="--k: var(--c-recv)"></span>Recebido</li></ul>
+      {{ svg.sold_received(d) }}
+      <details class="chart-table"><summary>Ver como tabela</summary><div class="table-wrap"><table>
+        <thead><tr><th>Período</th><th class="right">Vendido</th><th class="right">Recebido</th></tr></thead>
+        <tbody>{% for b in d.buckets %}{% if d.sold[loop.index0] or d.received[loop.index0] %}<tr><td>{{ b.long }}</td><td class="right money">{{ d.sold[loop.index0]|brl }}</td><td class="right money">{{ d.received[loop.index0]|brl }}</td></tr>{% endif %}{% endfor %}</tbody>
+        <tfoot><tr><td>Total</td><td class="right money">{{ d.sold|sum|brl }}</td><td class="right money">{{ d.received|sum|brl }}</td></tr></tfoot></table></div></details>
+    </div>
+  </section>
+
+  {% if not chosen and d.owners|length > 1 %}
+  <section class="panel chart-card">
+    <header><h2>Vendido por pessoa</h2></header>
+    <div class="body">
+      <ul class="legend">{% for o in d.owners[:2] %}<li><span class="key" style="--k: {{ 'var(--c1)' if loop.index0 == 0 else 'var(--c2)' }}"></span>{{ o.name }}</li>{% endfor %}</ul>
+      {{ svg.stacked_by_owner(d) }}
+      <details class="chart-table"><summary>Ver como tabela</summary><div class="table-wrap"><table>
+        <thead><tr><th>Período</th>{% for o in d.owners[:2] %}<th class="right">{{ o.name }}</th>{% endfor %}<th class="right">Total</th></tr></thead>
+        <tbody>{% for b in d.buckets %}{% if d.sold[loop.index0] %}<tr><td>{{ b.long }}</td>{% for o in d.owners[:2] %}<td class="right money">{{ d.sold_by_owner.get(o.id, [0] * d.buckets|length)[loop.index0]|brl }}</td>{% endfor %}<td class="right money">{{ d.sold[loop.index0]|brl }}</td></tr>{% endif %}{% endfor %}</tbody></table></div></details>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="panel chart-card">
+    <header><h2>Margem por produto</h2><span class="small muted">lucro no período</span></header>
+    <div class="body">
+      {% if d.margin_products %}
+      {% if not chosen and d.owners|length > 1 %}<ul class="legend">{% for o in d.owners[:2] %}<li><span class="key" style="--k: {{ 'var(--c1)' if loop.index0 == 0 else 'var(--c2)' }}"></span>{{ o.name }}</li>{% endfor %}</ul>{% endif %}
+      {{ svg.margin_chart(d) }}
+      {% if d.uncosted_products %}<p class="small warn-note" style="margin-top:.5rem">{{ d.uncosted_products }} {{ 'produto' if d.uncosted_products == 1 else 'produtos' }} sem custo informado {{ 'ficou' if d.uncosted_products == 1 else 'ficaram' }} de fora. <a href="{{ url_for('products.index') }}">Informar custos</a></p>{% endif %}
+      <details class="chart-table"><summary>Ver como tabela</summary><div class="table-wrap"><table>
+        <thead><tr><th>Produto</th><th class="right">Margem</th><th class="right">%</th></tr></thead>
+        <tbody>{% for p in d.margin_products %}<tr><td>{{ p.name }}</td><td class="right money">{{ p.amount|brl }}</td><td class="right money">{{ (p.percent|string|replace('.', ',') ~ '%') if p.percent is not none else '—' }}</td></tr>{% endfor %}</tbody></table></div></details>
+      {% else %}<div class="empty">Nenhuma venda com custo informado neste período.{% if d.uncosted_products %} <a href="{{ url_for('products.index') }}">Informe quanto os produtos custaram</a> para ver a margem.{% endif %}</div>{% endif %}
+    </div>
+  </section>
+
+  <section class="panel chart-card">
+    <header><h2>A receber por prazo</h2><span class="small muted">hoje</span></header>
+    <div class="body">
+      {% if d.aging|sum %}
+      {{ svg.aging_chart(d) }}
+      <details class="chart-table"><summary>Ver como tabela</summary><div class="table-wrap"><table>
+        <thead><tr><th>Prazo</th><th class="right">Valor</th></tr></thead>
+        <tbody>{% for label in aging_labels %}<tr><td>{{ label }}</td><td class="right money">{{ d.aging[loop.index0]|brl }}</td></tr>{% endfor %}</tbody>
+        <tfoot><tr><td>Total a receber</td><td class="right money">{{ d.aging|sum|brl }}</td></tr></tfoot></table></div></details>
+      {% else %}<div class="empty"><strong>Nada a receber.</strong></div>{% endif %}
+    </div>
+  </section>
+
+  <section class="panel chart-card">
+    <header><h2>Recebido por forma de pagamento</h2></header>
+    <div class="body">
+      {% if d.methods %}
+      {{ svg.methods_chart(d) }}
+      <details class="chart-table"><summary>Ver como tabela</summary><div class="table-wrap"><table>
+        <thead><tr><th>Forma</th><th class="right">Recebido</th></tr></thead>
+        <tbody>{% for name, v in d.methods %}<tr><td>{{ name }}</td><td class="right money">{{ v|brl }}</td></tr>{% endfor %}</tbody></table></div></details>
+      {% else %}<div class="empty">Nenhum recebimento neste período.</div>{% endif %}
+    </div>
+  </section>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/charts.js') }}"></script>{% endblock %}

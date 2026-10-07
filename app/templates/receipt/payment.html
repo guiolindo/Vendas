@@ -1,0 +1,23 @@
+{% extends "receipt/_layout.html" %}
+{% set back_url = url_for('sales.detail', sale_id=sale.id) %}
+{% set number = p.id %}{% set doc_date = p.paid_at %}{% set doc_time = none %}
+{% block title %}Recibo {{ p.id|numero }}{% endblock %}
+{% block kicker %}Recibo de pagamento{% endblock %}
+{% block body %}
+<section class="r-receipt-amount" aria-label="Valor recebido">
+  <span class="r-label">Valor recebido</span>
+  <strong class="r-big">{{ p.amount_cents|brl }}</strong>
+  <span class="r-words">({{ words }})</span>
+</section>
+<p class="r-text">Recebemos de <strong>{{ sale.customer.name if sale.customer else 'Consumidor' }}</strong> a importância acima,
+  em <strong>{{ p.method|method_label }}</strong>, referente à <strong>venda nº {{ sale.id|numero }}</strong> de {{ sale.sale_date|data_extenso }}.</p>
+
+<section class="r-totals" aria-label="Situação da venda">
+  <div class="row"><span>Total da venda</span><span class="num">{{ sale.total_cents|brl }}</span></div>
+  <div class="row total"><span>Este pagamento</span><span class="num">{{ p.amount_cents|brl }}</span></div>
+  {% if balance_after > 0 %}<div class="row due"><span>Saldo restante</span><span class="num">{{ balance_after|brl }}</span></div>
+  {% else %}<div class="row"><span>Saldo restante</span><span class="num">R$ 0,00 · quitada</span></div>{% endif %}
+</section>
+{% if p.note %}<p class="r-note"><span class="r-label">Observação</span>{{ p.note }}</p>{% endif %}
+{% if balance_after > 0 and sale.due_date %}<p class="r-note">O saldo restante vence em <strong>{{ sale.due_date|data }}</strong>.</p>{% endif %}
+{% endblock %}

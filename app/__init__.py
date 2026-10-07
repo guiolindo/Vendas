@@ -43,10 +43,10 @@ def create_app(overrides: dict | None = None) -> Flask:
 
     _setup_logging(app)
 
-    from .web import auth, collections, customers, dashboard, owners, products, reports, sales, templating, api
+    from .web import auth, charts, collections, customers, dashboard, owners, products, receipts, reports, sales, settings, templating, api
     templating.init_app(app)
     auth.init_app(app)
-    for module in (auth, dashboard, owners, products, customers, sales, collections, reports, api):
+    for module in (auth, dashboard, charts, owners, products, customers, sales, receipts, collections, reports, settings, api):
         app.register_blueprint(module.bp)
 
     @app.teardown_appcontext

@@ -2,6 +2,15 @@
 
 Sistema de vendas e controle financeiro: produtos, estoque, vendas, clientes, pagamentos (inclusive parciais), vencimentos, cobranças e relatórios. É **uma única aplicação** em Python (Flask + Jinja2 + SQLAlchemy), com PostgreSQL em produção. O negócio é tocado por **duas pessoas**: cada produto pertence a uma delas, e há um painel geral e um painel simples de cada pessoa. A interface é mobile-first: no celular tem navegação inferior, listas em cartões e uma tela de venda própria para o polegar.
 
+## O que o sistema faz
+
+- **Vendas** com pagamento total, parcial ou a prazo, estoque, clientes (extrato), cobranças por vencimento.
+- **Margem de lucro**: a pessoa informa quanto o produto custou e por quanto vendeu; o sistema mostra a margem em R$ e em % por produto, venda, pessoa e no mês (ao cadastrar o produto e na própria tela de venda, ao vivo).
+- **Duas pessoas**: cada produto tem dono; painel geral e painel simples de cada uma.
+- **Gráficos** (`/graficos`): vendido × recebido, vendido por pessoa, margem por produto, a receber por prazo e recebido por forma de pagamento. Cada gráfico tem tabela equivalente e dica ao tocar.
+- **Excel de verdade** (`.xlsx`) de todos os relatórios, mais uma planilha única do mês com uma aba por relatório; CSV continua disponível.
+- **Comprovante impresso** da venda (folha A4 ou bobina térmica de 80 mm) e **recibo** de cada pagamento, com valor por extenso. Os dados do negócio ficam em **Configurações**.
+
 ## Rodar no computador
 
 ```bash
@@ -26,6 +35,13 @@ Sem `DATABASE_URL`, usa um SQLite em `instance/vendas.db` (só para desenvolvime
 5. Troque sua senha quando quiser em **Minha conta**.
 
 As tabelas são criadas automaticamente na primeira subida (com lock, então vários workers não colidem).
+
+## Margem, gráficos, Excel e comprovante: como funcionam
+
+- **Margem** = valor líquido do item (o desconto da venda é rateado entre os itens) − quantidade × custo. Produto **sem custo informado fica fora da conta** (contar custo zero inflaria o lucro) e a tela avisa quantos ficaram de fora. A margem do geral é exatamente a soma das margens das pessoas.
+- **Gráficos** são SVG gerados no servidor (sem biblioteca, compatíveis com a CSP e com a impressão). As cores foram validadas por script (contraste, croma e separação para daltonismo): petróleo e terracota são as duas pessoas, verde é o dinheiro recebido, cinza é o vendido, tons de tijolo são o atraso. Os números vêm das mesmas regras dos painéis, e testes garantem que gráfico e painel nunca divergem.
+- **Excel**: valores, datas e percentuais são tipos do Excel (somam, filtram, ordenam); texto que começa com `=`, `+`, `-` ou `@` fica como texto (sem injeção de fórmula).
+- **Comprovante**: nunca mostra custo nem margem (testado). Mostra produtos, quem vendeu, pagamentos, saldo e vencimento, carimbo da situação e, em venda a prazo, a linha de assinatura do cliente. É um documento **sem valor fiscal**. Para PDF, use *Imprimir → Salvar como PDF* do navegador; a bobina declara a altura do papel conforme o conteúdo.
 
 ## Segurança
 
@@ -86,6 +102,8 @@ A tela só apresenta e facilita; **toda regra está em `services/` e `domain/`**
 
 - Cada venda tem **um** vencimento (sem parcelamento em várias datas). O extrato do cliente mostra *vendas* em aberto/vencidas.
 - Quantidades são inteiras (a unidade — un, cx, kg… — é só um rótulo). Valores vão até R$ 20.000.000,00 por campo.
+- Gráficos e painéis por pessoa são calculados na hora; com dezenas de milhares de vendas em aberto vale mover os cálculos para SQL.
+- Os gráficos não têm tema escuro (o sistema inteiro é claro).
 - Há um único nível de acesso (todo usuário logado pode tudo). Usuários extras: `flask --app run create-user NOME`.
 - O bloqueio de tentativas de login é em memória por processo (basta contra tentativa simples; para mais, use um proxy/WAF).
 - O esquema é criado por `create_all`, que **só cria tabelas novas**: ele não altera colunas de um banco já existente. Antes de evoluir as tabelas em produção, adote o Alembic (um banco criado por uma versão anterior deste código não ganharia as colunas novas).

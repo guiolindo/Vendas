@@ -2,7 +2,8 @@
 {% block title %}{{ r.title }}{% endblock %}
 {% block content %}
 <div class="page-head"><div><a class="crumb" href="{{ url_for('reports.index') }}">‹ Relatórios</a><h1>{{ r.title }}</h1><p>{{ r.description }}</p></div>
-  <div class="actions no-print"><a class="btn" href="{{ qs(exportar='csv') }}">{{ icon('download') }} Exportar para Excel</a><button class="btn" type="button" data-print>{{ icon('print') }} Imprimir</button></div></div>
+  <div class="actions no-print"><a class="btn primary" href="{{ qs(exportar='xlsx') }}">{{ icon('download') }} Exportar para Excel</a>
+    <a class="btn" href="{{ qs(exportar='csv') }}">CSV</a><button class="btn" type="button" data-print>{{ icon('print') }} Imprimir</button></div></div>
 <section class="panel">
   {% if r.filters %}
   <form class="filters no-print" method="get">

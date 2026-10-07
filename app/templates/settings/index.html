@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}Configurações{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Configurações</h1><p>Os dados do seu negócio, que aparecem no topo e no rodapé do comprovante impresso.</p></div></div>
+<form method="post" class="panel form-narrow" novalidate><div class="body">
+  {{ csrf() }}
+  {% for key, (label, maxlen, default) in fields.items() %}
+  <div class="field"><label for="f-{{ key }}">{{ label }}{% if key != 'business_name' %} <span class="hint">(opcional)</span>{% endif %}</label>
+    <input id="f-{{ key }}" name="{{ key }}" value="{{ values.get(key, '') }}" maxlength="{{ maxlen }}" class="{{ 'invalid' if error_field == key }}" {% if key == 'business_name' %}required{% endif %}></div>
+  {% endfor %}
+  <label style="font-weight:400"><input type="checkbox" name="show_seller" {% if values.get('show_seller') %}checked{% endif %}> Mostrar quem vendeu (a pessoa dona do produto) no comprovante</label>
+  <div class="form-foot"><button class="btn primary" type="submit">Salvar</button></div>
+  <p class="help">O custo e a margem <strong>nunca</strong> aparecem no comprovante.</p>
+</div></form>
+{% endblock %}

@@ -45,3 +45,12 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(40), index=True)
     detail: Mapped[str | None] = mapped_column(String(255))
     ip_hash: Mapped[str | None] = mapped_column(String(32))
+
+
+class Setting(Base):
+    """Configurações simples do negócio (nome, telefone... usados no cabeçalho do comprovante)."""
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str | None] = mapped_column(String(300))

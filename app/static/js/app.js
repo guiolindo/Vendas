@@ -80,6 +80,10 @@
     }
   });
 
+  document.addEventListener("change", function (e) {
+    if (e.target.matches && e.target.matches("select[data-autosubmit]")) e.target.form.submit();
+  });
+
   var kind = document.querySelector("[data-stock-kind]");
   if (kind) kind.addEventListener("change", function () {
     document.querySelector("[data-stock-label]").textContent =

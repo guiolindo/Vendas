@@ -1,0 +1,52 @@
+{% extends "receipt/_layout.html" %}
+{% set back_url = url_for('sales.detail', sale_id=sale.id) %}
+{% set number = sale.id %}{% set doc_date = sale.sale_date %}{% set doc_time = sale.created_at %}
+{% block title %}Comprovante da venda {{ sale.id|numero }}{% endblock %}
+{% block kicker %}Comprovante de venda{% endblock %}
+{% block body %}
+{% set st = sale.status %}
+<section class="r-meta" aria-label="Dados da venda">
+  <div><span class="r-label">Cliente</span>
+    <strong>{{ sale.customer.name if sale.customer else 'Consumidor' }}</strong>
+    {% if sale.customer and (sale.customer.phone or sale.customer.document) %}<span class="r-muted">{{ [sale.customer.phone, sale.customer.document]|select|join(' · ') }}</span>{% endif %}</div>
+  {% if cfg.show_seller and sellers %}<div><span class="r-label">{{ 'Vendido por' if sellers|length == 1 else 'Vendido por' }}</span><strong>{{ sellers|join(' e ') }}</strong></div>{% endif %}
+  {% if sale.remaining_cents > 0 and sale.due_date %}<div><span class="r-label">Vencimento</span><strong>{{ sale.due_date|data }}</strong><span class="r-muted">{{ sale.due_date|due_hint }}</span></div>{% endif %}
+  <div class="r-stamp {{ st }}" aria-label="Situação: {{ st|status_label }}">{{ st|status_label }}</div>
+</section>
+
+<table class="r-items">
+  <thead><tr><th>Produto</th><th class="num">Qtd.</th><th class="num">Preço</th><th class="num">Total</th></tr></thead>
+  <tbody>{% for i in sale.items %}
+    <tr><td class="item"><span class="item-name">{{ i.product_name }}</span>
+          <span class="r-muted">{{ i.product_code }}{% if cfg.show_seller and sellers|length > 1 and i.owner %} · {{ i.owner.name }}{% endif %}</span></td>
+        <td class="num">{{ i.quantity }}{% if i.unit and i.unit != 'un' %} {{ i.unit }}{% endif %}</td>
+        <td class="num">{{ i.unit_price_cents|brl }}</td><td class="num strong">{{ i.total_cents|brl }}</td></tr>{% endfor %}</tbody>
+</table>
+
+<section class="r-totals" aria-label="Valores">
+  {% if sale.discount_cents %}<div class="row"><span>Subtotal</span><span class="num">{{ sale.subtotal_cents|brl }}</span></div>
+  <div class="row"><span>Desconto</span><span class="num">− {{ sale.discount_cents|brl }}</span></div>{% endif %}
+  <div class="row total"><span>Total</span><span class="num">{{ sale.total_cents|brl }}</span></div>
+  {% if not sale.cancelled %}
+  <div class="row"><span>Pago</span><span class="num">{{ sale.paid_cents|brl }}</span></div>
+  {% if sale.remaining_cents > 0 %}<div class="row due"><span>Falta pagar</span><span class="num">{{ sale.remaining_cents|brl }}</span></div>{% endif %}
+  {% endif %}
+</section>
+
+{% if payments and not sale.cancelled %}
+<section class="r-payments" aria-label="Pagamentos recebidos">
+  <h2 class="r-h">Pagamentos recebidos</h2>
+  <table><tbody>{% for p in payments %}<tr><td>{{ p.paid_at|data }}</td><td>{{ p.method|method_label }}{% if p.note %} <span class="r-muted">· {{ p.note }}</span>{% endif %}</td><td class="num strong">{{ p.amount_cents|brl }}</td></tr>{% endfor %}</tbody></table>
+</section>
+{% endif %}
+
+{% if sale.cancelled %}<p class="r-note"><strong>Venda cancelada</strong> em {{ sale.cancelled_at|hora }}. {{ sale.cancel_reason }}</p>{% endif %}
+{% if sale.notes %}<p class="r-note"><span class="r-label">Observações</span>{{ sale.notes }}</p>{% endif %}
+
+{% if sale.remaining_cents > 0 and sale.customer and not sale.cancelled %}
+<section class="r-sign" aria-label="Reconhecimento da dívida">
+  <p>Reconheço dever <strong>{{ sale.remaining_cents|brl }}</strong>{% if sale.due_date %}, a pagar até <strong>{{ sale.due_date|data }}</strong>{% endif %}.</p>
+  <div class="line"><span>{{ sale.customer.name }}</span></div>
+</section>
+{% endif %}
+{% endblock %}

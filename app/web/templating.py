@@ -15,6 +15,9 @@ from ..models.catalog import MOVEMENT_KINDS
 from .helpers import csrf_token
 
 
+MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+
+
 def init_app(app) -> None:
     env = app.jinja_env
     env.filters["brl"] = format_brl
@@ -28,6 +31,8 @@ def init_app(app) -> None:
     env.filters["movement_label"] = lambda k: MOVEMENT_KINDS.get(k, k)
     env.filters["due_hint"] = lambda d: due_hint(d, clock.today())
     env.filters["qtd"] = lambda n: f"{n:,}".replace(",", ".")
+    env.filters["data_extenso"] = lambda d: f"{d.day} de {MESES[d.month - 1]} de {d.year}" if d else "—"
+    env.filters["numero"] = lambda n: f"{int(n):06d}"
     env.filters["is_today"] = lambda d: d == clock.today()
     # globais: visíveis também dentro de macros importados
     env.globals["csrf_token"] = csrf_token

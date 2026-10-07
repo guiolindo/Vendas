@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Comprovante{% endblock %} · {{ cfg.business_name }}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/receipt.css') }}">
+  {% if fmt == 'termico' %}<style>@page { size: 80mm {{ page_h }}mm; margin: 3mm; }</style>
+  {% else %}<link rel="stylesheet" href="{{ url_for('static', filename='css/receipt-a4.css') }}">{% endif %}
+</head>
+<body class="{{ fmt }}">
+  <nav class="r-toolbar no-print" aria-label="Opções do comprovante">
+    <a class="r-back" href="{{ back_url }}">‹ Voltar</a>
+    <div class="r-formats" role="group" aria-label="Formato do papel">
+      <a href="?formato=a4" {% if fmt == 'a4' %}aria-current="true"{% endif %}>Folha A4</a>
+      <a href="?formato=termico" {% if fmt == 'termico' %}aria-current="true"{% endif %}>Bobina 80 mm</a>
+    </div>
+    <button type="button" class="r-print" data-print>Imprimir ou salvar em PDF</button>
+  </nav>
+  {% if cfg.business_name == 'Meu Negócio' %}<p class="r-hint no-print">Dica: coloque o nome do seu negócio em <a href="{{ url_for('settings.index') }}">Configurações</a> para ele aparecer aqui.</p>{% endif %}
+
+  <main class="sheet {{ fmt }}">
+    <header class="r-head">
+      <div class="r-brand">
+        <span class="r-mark" aria-hidden="true">{{ (cfg.business_name or 'V')[0]|upper }}</span>
+        <div>
+          <h1 class="r-name">{{ cfg.business_name }}</h1>
+          <p class="r-sub">{% set bits = [cfg.document, cfg.phone, cfg.address, cfg.social]|select|list %}{{ bits|join(' · ') }}</p>
+        </div>
+      </div>
+      <div class="r-doc">
+        <span class="r-kicker">{% block kicker %}{% endblock %}</span>
+        <strong class="r-number">Nº {{ number|numero }}</strong>
+        <span class="r-date">{{ doc_date|data_extenso }}{% if doc_time %} · {{ doc_time.strftime('%H:%M') }}{% endif %}</span>
+      </div>
+    </header>
+    {% block body %}{% endblock %}
+    <footer class="r-foot">
+      {% if cfg.thanks %}<p class="r-thanks">{{ cfg.thanks }}</p>{% endif %}
+      <p class="r-legal">Documento sem valor fiscal · Emitido em {{ now.strftime('%d/%m/%Y às %H:%M') }}</p>
+    </footer>
+  </main>
+  <script src="{{ url_for('static', filename='js/receipt.js') }}"></script>
+</body>
+</html>

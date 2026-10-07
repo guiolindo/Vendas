@@ -7,7 +7,7 @@
   <p>{{ sale.sale_date|data }} ·
     {% if sale.customer %}<a href="{{ url_for('customers.detail', customer_id=sale.customer_id) }}">{{ sale.customer.name }}</a>{% else %}Consumidor (sem cadastro){% endif %}</p></div>
   <div class="actions no-print">
-    <button class="btn" type="button" data-print>{{ icon('print') }} Imprimir</button>
+    <a class="btn primary" href="{{ url_for('receipts.sale', sale_id=sale.id) }}" target="_blank" rel="noopener">{{ icon('print') }} Comprovante</a>
     {% if not sale.cancelled %}<a class="btn" href="{{ url_for('sales.edit', sale_id=sale.id) }}">{{ icon('edit') }} Corrigir cliente ou vencimento</a>{% endif %}
   </div></div>
 
@@ -57,7 +57,7 @@
           <td>{{ p.paid_at|data }}</td><td class="right money {{ '' if p.voided else 'in-money' }}">{{ p.amount_cents|brl }}</td>
           <td>{{ p.method|method_label }}</td>
           <td>{% if p.voided %}<span class="badge cancelada">Estornado</span> <span style="text-decoration:none">{{ p.void_reason }}</span>{% else %}{{ p.note or '—' }}{% endif %}</td>
-          <td class="right no-print">{% if not p.voided and not sale.cancelled %}
+          <td class="right no-print">{% if not p.voided %}<a class="small" href="{{ url_for('receipts.payment', payment_id=p.id) }}" target="_blank" rel="noopener">Recibo</a> {% endif %}{% if not p.voided and not sale.cancelled %}
             <details class="inline-pay"><summary class="link-button danger small">Estornar</summary>
               <form method="post" action="{{ url_for('sales.void_payment', payment_id=p.id) }}" class="pay-form" style="margin-top:.5rem" data-confirm="Estornar o pagamento de {{ p.amount_cents|brl }}?">{{ csrf() }}
                 <div class="field"><label>Motivo <span class="hint">(opcional)</span></label><input name="reason" maxlength="255" placeholder="Lançado por engano"></div>
