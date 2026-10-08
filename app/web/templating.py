@@ -39,6 +39,8 @@ def init_app(app) -> None:
             values["v"] = _versions[name]
 
     env = app.jinja_env
+    from ..domain.sizes import SIZES
+    env.globals["SIZES"] = SIZES
     env.filters["brl"] = format_brl
     env.filters["brl_plain"] = lambda c: format_brl(c, symbol=False)
     env.filters["data"] = lambda d: d.strftime("%d/%m/%Y") if d else "—"

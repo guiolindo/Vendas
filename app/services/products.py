@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from ..db import atomic
 from ..domain.text import limited
 from ..errors import BusinessError, NotFound
-from ..models import Category, Product, SaleItem, StockMovement
+from ..domain.sizes import SIZES, clean_sizes
+from ..models import Category, Product, ProductSize, SaleItem, StockMovement
 from ..domain.money import MAX_CENTS, format_brl
 from . import costs
 from .stock import MAX_QTY, apply_movement
@@ -28,6 +29,8 @@ class ProductInput:
     active: bool = True
     initial_stock: int = 0  # só na criação
     track_stock: bool = True     # False: vende sem controlar quantidade
+    sizes: list[str] = field(default_factory=list)            # tamanhos do produto (vazio = sem tamanhos)
+    initial_by_size: dict[str, int] = field(default_factory=dict)   # só na criação: estoque inicial de cada tamanho
 
 
 def _clean(value: str | None) -> str | None:
@@ -51,6 +54,13 @@ def _validate(data: ProductInput) -> None:
         raise BusinessError(f"O preço ou o custo passa do limite de {format_brl(MAX_CENTS)}.", field="price")
     if not 0 <= data.initial_stock <= MAX_QTY:
         raise BusinessError("O estoque inicial precisa ser zero ou mais.", field="initial_stock")
+    try:
+        clean_sizes(data.sizes)
+    except ValueError as e:
+        raise BusinessError(f"Tamanho inválido: {e}. Use {', '.join(SIZES)}.", field="size") from None
+    for qty in data.initial_by_size.values():
+        if not isinstance(qty, int) or not 0 <= qty <= MAX_QTY:
+            raise BusinessError("O estoque inicial de cada tamanho precisa ser zero ou mais.", field="initial_stock")
 
 
 def _category(session: Session, name: str | None) -> Category | None:
@@ -114,7 +124,18 @@ def create_product(session: Session, data: ProductInput, user_id: int | None = N
         session.flush()
         if data.cost_cents > 0:
             costs.set_cost(session, product, data.cost_cents, "cadastro", user_id)
-        if data.track_stock and data.initial_stock > 0:
+        wanted = clean_sizes(data.sizes)
+        if wanted:
+            for size in wanted:
+                product.sizes.append(ProductSize(size=size, position=SIZES.index(size)))
+            session.flush()
+            if data.track_stock:
+                for size in wanted:
+                    qty = data.initial_by_size.get(size, 0)
+                    if qty > 0:
+                        movement = apply_movement(session, product.id, qty, "inicial", size=size, user_id=user_id)
+                        movement.unit_cost_cents = data.cost_cents or None
+        elif data.track_stock and data.initial_stock > 0:
             movement = apply_movement(session, product.id, data.initial_stock, "inicial", user_id=user_id)
             movement.unit_cost_cents = data.cost_cents or None
     return product
@@ -127,7 +148,31 @@ def update_product(session: Session, product_id: int, data: ProductInput, user_i
         if product is None:
             raise NotFound("Produto não encontrado.")
         _fill(session, product, data, user_id)
+        _sync_sizes(session, product, clean_sizes(data.sizes))
     return product
+
+
+def _sync_sizes(session: Session, product: Product, wanted: list[str]) -> None:
+    """Ajusta os tamanhos do produto. Tirar um tamanho só se o estoque dele estiver zerado;
+    começar a usar tamanhos num produto que já tem estoque sem tamanho exige zerar antes."""
+    current = {s.size: s for s in product.sizes}
+    add = [s for s in wanted if s not in current]
+    drop = [s for s in current if s not in wanted]
+    if add and not current and product.track_stock and product.stock_qty > 0:
+        raise BusinessError(
+            f"Este produto já tem {product.stock_qty} {product.unit} em estoque sem tamanho. Zere o estoque em "
+            "“Contei e o número é outro” e depois escolha os tamanhos: assim cada tamanho começa com a sua quantidade certa.",
+            field="size")
+    for size in drop:
+        row = current[size]
+        if product.track_stock and row.stock_qty > 0:
+            raise BusinessError(f"O tamanho {size} ainda tem {row.stock_qty} {product.unit} em estoque. "
+                                "Zere em “Contei e o número é outro” antes de tirar o tamanho.", field="size")
+        product.stock_qty = max(product.stock_qty - row.stock_qty, 0)   # o saldo do produto é a soma dos tamanhos
+        product.sizes.remove(row)
+    for size in add:
+        product.sizes.append(ProductSize(size=size, position=SIZES.index(size)))
+    session.flush()
 
 
 def set_active(session: Session, product_id: int, active: bool) -> Product:

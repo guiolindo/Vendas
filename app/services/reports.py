@@ -119,7 +119,7 @@ def products_report(session: Session, p: ReportParams, today: date) -> Report:
         for item in sale.items:
             if p.owner_id and item.owner_id != p.owner_id:
                 continue
-            r = acc.setdefault(item.product_id, {"name": item.product_name, "code": item.product_code,
+            r = acc.setdefault((item.product_id, item.size), {"name": item.label, "code": item.product_code,
                                                  "qty": 0, "revenue": 0, "cost": 0,
                                                  "m_rev": 0, "m_cost": 0})
             m = margin_svc.item_margin(item, nets[item.id])
@@ -217,9 +217,10 @@ def stock_report(session: Session, p: ReportParams, today: date) -> Report:
     if p.status == "baixo":
         q = q.where(Product.stock_qty <= Product.min_stock)
     rows = [{"name": x.name, "code": x.code, "stock": x.stock_qty, "min": x.min_stock, "unit": x.unit,
+             "sizes": " · ".join(f"{s.size} {s.stock_qty}" for s in x.sizes),
              "cost_value": x.stock_qty * x.cost_cents, "sale_value": x.stock_qty * x.price_cents}
             for x in session.scalars(q)]
-    cols = [Column("name", "Produto"), Column("code", "Código"), Column("stock", "Em estoque", "int"),
+    cols = [Column("name", "Produto"), Column("code", "Código"), Column("stock", "Em estoque", "int"), Column("sizes", "Por tamanho"),
             Column("min", "Mínimo", "int"), Column("unit", "Un."), Column("cost_value", "Valor ao custo atual", "money"),
             Column("sale_value", "Valor de venda", "money")]
     return Report("estoque", *CATALOG["estoque"], cols, rows, _sum(rows, "cost_value", "sale_value"), ("stock_status",))

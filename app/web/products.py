@@ -110,14 +110,14 @@ def stock_action(product_id: int):
     note = f.text("note") or None
     if request.form.get("kind") == "ajuste":
         stock.adjust_to_count(db(), product_id, f.integer("quantity", "Quantidade contada", default=-1, minimum=-1),
-                              note, current_user_id())
+                              note, current_user_id(), size=f.text("size") or None)
         flash("Estoque ajustado.", "success")
     else:
         qty = f.integer("quantity", "Quantidade", default=0)
         cost = f.money("unit_cost", "Custo de cada unidade", default=None) if f.text("unit_cost") else None
         stock.register_entry(db(), product_id, qty, note, current_user_id(), unit_cost_cents=cost,
-                             update_cost=bool(cost) and f.flag("update_cost"))
-        audit_event("compra_registrada", f"produto #{product_id} qtd={qty} custo={cost}")
+                             update_cost=bool(cost) and f.flag("update_cost"), size=f.text("size") or None)
+        audit_event("compra_registrada", f"produto #{product_id} qtd={qty} tamanho={f.text('size') or '-'} custo={cost}")
         flash(f"Compra de {qty} registrada" + (" e custo do produto atualizado." if cost and f.flag("update_cost") else "."), "success")
     return redirect(url_for("products.detail", product_id=product_id))
 

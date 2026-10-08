@@ -17,7 +17,7 @@
 <table class="r-items">
   <thead><tr><th>Produto</th><th class="num">Qtd.</th><th class="num">Preço</th><th class="num">Total</th></tr></thead>
   <tbody>{% for i in sale.items %}
-    <tr><td class="item"><span class="item-name">{{ i.product_name }}</span>
+    <tr><td class="item"><span class="item-name">{{ i.label }}</span>
           <span class="r-muted">{{ i.product_code }}</span></td>
         <td class="num">{{ i.quantity }}{% if i.unit and i.unit != 'un' %} {{ i.unit }}{% endif %}</td>
         <td class="num">{{ i.unit_price_cents|brl }}</td><td class="num strong">{{ i.total_cents|brl }}</td></tr>{% endfor %}</tbody>

@@ -1,7 +1,7 @@
 """Estoque: única porta de entrada para alterar `Product.stock_qty`."""
 from __future__ import annotations
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from .. import clock
@@ -9,7 +9,7 @@ from ..db import atomic
 from ..domain.text import limited
 from ..errors import BusinessError, NotFound
 from ..domain.money import MAX_CENTS
-from ..models import Product, StockMovement
+from ..models import Product, ProductSize, StockMovement
 from . import costs
 
 MAX_QTY = 1_000_000
@@ -21,12 +21,17 @@ def _require_tracked(session: Session, product_id: int) -> None:
         raise BusinessError("Este produto está sem controle de estoque. Ligue o controle na edição do produto para usar estoque.")
 
 
+def _size_stock(session: Session, product_id: int, size: str) -> int | None:
+    return session.scalar(select(ProductSize.stock_qty).where(ProductSize.product_id == product_id, ProductSize.size == size))
+
+
 def apply_movement(
     session: Session,
     product_id: int,
     delta: int,
     kind: str,
     *,
+    size: str | None = None,
     sale_id: int | None = None,
     note: str | None = None,
     user_id: int | None = None,
@@ -35,29 +40,58 @@ def apply_movement(
 
     A atualização é condicional (`stock_qty + delta >= 0`), então o estoque
     nunca fica negativo, mesmo com duas vendas simultâneas do mesmo produto.
+    Produto com tamanhos: o saldo mexido é o do tamanho, e o do produto (a soma) acompanha.
     """
     if delta == 0:
         raise BusinessError("A quantidade não pode ser zero.")
+    has_sizes = bool(session.scalar(select(func.count()).select_from(ProductSize).where(ProductSize.product_id == product_id)))
+    size = (size or "").strip() or None
+    if has_sizes and size is None:
+        name = session.scalar(select(Product.name).where(Product.id == product_id))
+        raise BusinessError(f"Escolha o tamanho de “{name}”.", field="size")
+    if size is not None and not has_sizes:
+        raise BusinessError("Este produto não tem tamanhos.", field="size")
     if kind not in ("venda", "cancelamento"):
         _require_tracked(session, product_id)
-    result = session.execute(
-        update(Product)
-        .where(Product.id == product_id, Product.stock_qty + delta >= 0)
-        .values(stock_qty=Product.stock_qty + delta)
-        .execution_options(synchronize_session=False)
-    )
-    if result.rowcount == 0:
-        product = session.get(Product, product_id)
-        if product is None:
-            raise NotFound("Produto não encontrado.")
-        session.refresh(product)
-        raise BusinessError(
-            f"Estoque insuficiente de “{product.name}”: restam {product.stock_qty} {product.unit}.",
-            field="quantity",
+    if size is None:
+        result = session.execute(
+            update(Product)
+            .where(Product.id == product_id, Product.stock_qty + delta >= 0)
+            .values(stock_qty=Product.stock_qty + delta)
+            .execution_options(synchronize_session=False)
         )
-    balance = session.scalar(select(Product.stock_qty).where(Product.id == product_id))
+        if result.rowcount == 0:
+            product = session.get(Product, product_id)
+            if product is None:
+                raise NotFound("Produto não encontrado.")
+            session.refresh(product)
+            raise BusinessError(
+                f"Estoque insuficiente de “{product.name}”: restam {product.stock_qty} {product.unit}.",
+                field="quantity",
+            )
+        balance = session.scalar(select(Product.stock_qty).where(Product.id == product_id))
+    else:
+        result = session.execute(
+            update(ProductSize)
+            .where(ProductSize.product_id == product_id, ProductSize.size == size, ProductSize.stock_qty + delta >= 0)
+            .values(stock_qty=ProductSize.stock_qty + delta)
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount == 0:
+            product = session.get(Product, product_id)
+            if product is None:
+                raise NotFound("Produto não encontrado.")
+            left = _size_stock(session, product_id, size)
+            if left is None:
+                raise BusinessError(f"“{product.name}” não tem o tamanho {size}.", field="size")
+            raise BusinessError(f"Estoque insuficiente de “{product.name}” no tamanho {size}: restam {left} {product.unit}.",
+                                field="quantity")
+        # o saldo do produto é a soma dos tamanhos: acompanha sempre, na mesma transação
+        session.execute(update(Product).where(Product.id == product_id).values(stock_qty=Product.stock_qty + delta)
+                        .execution_options(synchronize_session=False))
+        balance = _size_stock(session, product_id, size)
     movement = StockMovement(
-        product_id=product_id, kind=kind, quantity=delta, balance_after=balance,
+        product_id=product_id, kind=kind, quantity=delta, size=size, balance_after=balance,
         sale_id=sale_id, note=note or None, created_by=user_id,
     )
     session.add(movement)
@@ -68,7 +102,7 @@ def apply_movement(
 
 def register_entry(session: Session, product_id: int, quantity: int, note: str | None = None,
                    user_id: int | None = None, unit_cost_cents: int | None = None,
-                   update_cost: bool = False) -> StockMovement:
+                   update_cost: bool = False, size: str | None = None) -> StockMovement:
     """Chegou mercadoria. Se informar quanto custou cada unidade, a compra guarda esse custo e, se pedido,
     ele vira o custo atual do produto (vale só para as vendas daqui pra frente)."""
     if quantity <= 0 or quantity > MAX_QTY:
@@ -77,7 +111,7 @@ def register_entry(session: Session, product_id: int, quantity: int, note: str |
     if unit_cost_cents is not None and not 0 < unit_cost_cents <= MAX_CENTS:
         raise BusinessError("O custo de cada unidade precisa ser maior que zero.", field="unit_cost")
     with atomic(session):
-        movement = apply_movement(session, product_id, quantity, "entrada", note=note, user_id=user_id)
+        movement = apply_movement(session, product_id, quantity, "entrada", size=size, note=note, user_id=user_id)
         movement.unit_cost_cents = unit_cost_cents
         if update_cost and unit_cost_cents:
             product = session.get(Product, product_id)
@@ -100,11 +134,13 @@ def void_entry(session: Session, movement_id: int, reason: str | None = None, us
         if entry.voided:
             raise BusinessError("Esta compra já foi excluída.")
         product = session.get(Product, entry.product_id)
-        if product.stock_qty < entry.quantity:
+        left = _size_stock(session, entry.product_id, entry.size) if entry.size else product.stock_qty
+        if left is None or left < entry.quantity:
+            where = f" no tamanho {entry.size}" if entry.size else ""
             raise BusinessError(
-                f"Não dá para excluir: esta compra trouxe {entry.quantity} {product.unit}, mas só restam {product.stock_qty} no estoque "
+                f"Não dá para excluir: esta compra trouxe {entry.quantity} {product.unit}, mas só restam {left or 0}{where} no estoque "
                 f"(o resto já foi vendido). Se a quantidade estiver errada, use “Contei e o número é outro”.")
-        reversal = apply_movement(session, entry.product_id, -entry.quantity, "estorno_compra",
+        reversal = apply_movement(session, entry.product_id, -entry.quantity, "estorno_compra", size=entry.size,
                                   note=f"Compra de {entry.created_at:%d/%m/%Y} excluída", user_id=user_id)
         reversal.reverses_id = entry.id
         entry.voided_at = clock.now()
@@ -117,7 +153,7 @@ def void_entry(session: Session, movement_id: int, reason: str | None = None, us
 
 
 def adjust_to_count(session: Session, product_id: int, counted: int, note: str | None = None,
-                    user_id: int | None = None) -> StockMovement:
+                    user_id: int | None = None, size: str | None = None) -> StockMovement:
     """Ajusta o estoque para a quantidade contada fisicamente."""
     if counted < 0 or counted > MAX_QTY:
         raise BusinessError("A quantidade contada não pode ser negativa.", field="quantity")
@@ -126,6 +162,10 @@ def adjust_to_count(session: Session, product_id: int, counted: int, note: str |
         current = session.scalar(select(Product.stock_qty).where(Product.id == product_id))
         if current is None:
             raise NotFound("Produto não encontrado.")
+        if size:
+            current = _size_stock(session, product_id, size)
+            if current is None:
+                raise BusinessError(f"Este produto não tem o tamanho {size}.", field="size")
         if counted == current:
             raise BusinessError("O estoque já está com essa quantidade.", field="quantity")
-        return apply_movement(session, product_id, counted - current, "ajuste", note=note, user_id=user_id)
+        return apply_movement(session, product_id, counted - current, "ajuste", size=size, note=note, user_id=user_id)

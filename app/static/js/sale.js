@@ -6,7 +6,9 @@
   var csrf = document.querySelector("meta[name=csrf-token]").content;
   var DRAFT = "vendas:rascunho";
 
-  var state = { cart: [], customer: null, mode: "full", results: [], active: 0 };
+  var state = { cart: [], customer: null, mode: "full", results: [], active: 0, picking: null };
+  function lineName(i) { return i.name + (i.size ? " · " + i.size : ""); }
+  function sizeStockText(p) { return p.sizes.map(function (s) { return s.size + " " + (s.stock === null ? "" : s.stock); }).join(" · "); }
 
   // ── utilidades
   function debounce(fn, ms) { var t; return function () { var a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, ms); }; }
@@ -54,6 +56,7 @@
 
   function renderResults() {
     var box = $("product-results");
+    if (state.picking) { renderSizePicker(state.picking); return; }
     if (!state.results.length) {
       box.innerHTML = '<div class="empty">' + ($("product-search").value ? "Nenhum produto encontrado." : "Nenhum produto cadastrado. <a href='/produtos/novo'>Cadastrar produto</a>") + "</div>";
       return;
@@ -64,19 +67,36 @@
       return '<button type="button" class="result' + (idx === state.active ? " active" : "") + '" role="option" data-idx="' + idx + '">' +
         '<span class="r-name">' + esc(p.name) + '</span><span class="r-price">' + Money.format(p.price_cents) + "</span>" +
         '<span class="r-meta">' + esc(p.code) + (p.sku ? " · " + esc(p.sku) : "") + '</span><span class="r-stock ' + cls + '">' +
-        (p.stock === null ? "" : p.stock <= 0 ? "Sem estoque" : p.stock + " " + esc(p.unit) + " em estoque") + "</span></button>";
+        (p.stock === null ? (p.sizes.length ? "Tamanhos: " + p.sizes.map(function (s) { return esc(s.size); }).join(" ") : "")
+          : p.stock <= 0 ? "Sem estoque" : p.sizes.length ? esc(sizeStockText(p)) : p.stock + " " + esc(p.unit) + " em estoque") + "</span></button>";
     }).join("");
     $("product-search").setAttribute("aria-expanded", "true");
   }
 
-  function addProduct(p) {
-    if (p.stock !== null && p.stock <= 0) { flash("“" + p.name + "” está sem estoque."); return; }
-    var line = state.cart.filter(function (i) { return i.id === p.id; })[0];
+  // Produto com tamanhos: primeiro pergunta o tamanho; só depois entra no carrinho.
+  function renderSizePicker(p) {
+    var box = $("product-results");
+    box.innerHTML = '<div class="size-picker" role="group" aria-label="Tamanho de ' + esc(p.name) + '">' +
+      '<div class="sp-head"><strong>' + esc(p.name) + '</strong><span class="muted small">Qual tamanho?</span></div><div class="sp-sizes">' +
+      p.sizes.map(function (s) {
+        var out = s.stock !== null && s.stock <= 0;
+        return '<button type="button" class="size-btn" data-size="' + esc(s.size) + '"' + (out ? " disabled" : "") + '><span class="sb-size">' + esc(s.size) + '</span>' +
+          '<span class="sb-stock">' + (s.stock === null ? "" : out ? "acabou" : s.stock + " em estoque") + "</span></button>";
+      }).join("") + '</div><button type="button" class="link-button" data-back>‹ Voltar à lista</button></div>';
+    var first = box.querySelector(".size-btn:not([disabled])"); if (first) first.focus();
+  }
+  function addProduct(p, size) {
+    if (p.sizes && p.sizes.length && !size) { state.picking = p; renderResults(); updateResultsVisibility(); return; }
+    var stock = p.stock;
+    if (size) { var row = p.sizes.filter(function (s) { return s.size === size; })[0]; stock = row ? row.stock : null; }
+    state.picking = null;
+    if (stock !== null && stock <= 0) { flash("“" + p.name + (size ? " · " + size : "") + "” está sem estoque."); renderResults(); return; }
+    var line = state.cart.filter(function (i) { return i.id === p.id && (i.size || null) === (size || null); })[0];
     if (line) {
-      if (line.stock !== null && line.qty >= line.stock) { flash("Só há " + line.stock + " " + line.unit + " de “" + line.name + "” em estoque."); }
+      if (line.stock !== null && line.qty >= line.stock) { flash("Só há " + line.stock + " " + line.unit + " de “" + lineName(line) + "” em estoque."); }
       else line.qty += 1;
     } else {
-      state.cart.push({ id: p.id, name: p.name, unit: p.unit, list: p.price_cents, cost: p.cost_cents || 0, price: null, qty: 1, stock: p.stock });
+      state.cart.push({ id: p.id, name: p.name, size: size || null, unit: p.unit, list: p.price_cents, cost: p.cost_cents || 0, price: null, qty: 1, stock: stock });
     }
     $("product-search").value = ""; loadProducts();
     if (phone.matches) $("product-search").blur(); else $("product-search").focus();  // no celular, o teclado não deve cobrir o carrinho
@@ -89,14 +109,14 @@
     $("cart-empty").hidden = state.cart.length > 0;
     $("cart-count").textContent = state.cart.length ? state.cart.reduce(function (s, i) { return s + i.qty; }, 0) + " un. em " + state.cart.length + (state.cart.length === 1 ? " produto" : " produtos") : "";
     cart.innerHTML = state.cart.map(function (i, idx) {
-      return '<div class="cart-row" data-idx="' + idx + '"><div><div class="c-name">' + esc(i.name) + '</div>' +
+      return '<div class="cart-row" data-idx="' + idx + '"><div><div class="c-name">' + esc(i.name) + (i.size ? ' <span class="size-tag">' + esc(i.size) + '</span>' : '') + '</div>' +
         '<div class="c-unit">' + (i.price != null ? 'Preço alterado · tabela ' + Money.format(i.list) : Money.format(i.list) + " cada") + '</div></div>' +
-        '<div class="money-input" title="Preço unitário"><input class="price-edit" data-act="price" value="' + Money.plain(linePrice(i)) + '" inputmode="decimal" aria-label="Preço unitário de ' + esc(i.name) + '"></div>' +
+        '<div class="money-input" title="Preço unitário"><input class="price-edit" data-act="price" value="' + Money.plain(linePrice(i)) + '" inputmode="decimal" aria-label="Preço unitário de ' + esc(lineName(i)) + '"></div>' +
         '<div class="stepper"><button type="button" data-act="dec" aria-label="Diminuir">−</button>' +
-        '<input data-act="qty" value="' + i.qty + '" inputmode="numeric" aria-label="Quantidade de ' + esc(i.name) + '">' +
+        '<input data-act="qty" value="' + i.qty + '" inputmode="numeric" aria-label="Quantidade de ' + esc(lineName(i)) + '">' +
         '<button type="button" data-act="inc" aria-label="Aumentar">+</button></div>' +
         '<div class="c-total">' + Money.format(i.qty * linePrice(i)) + '</div>' +
-        '<button type="button" class="icon-btn" data-act="del" aria-label="Remover ' + esc(i.name) + '">×</button></div>';
+        '<button type="button" class="icon-btn" data-act="del" aria-label="Remover ' + esc(lineName(i)) + '">×</button></div>';
     }).join("");
   }
 
@@ -145,7 +165,7 @@
   var phone = window.matchMedia("(max-width: 860px)");
   function updateResultsVisibility() {
     var s = $("product-search");
-    $("product-results").classList.toggle("show", document.activeElement === s || !!s.value || state.cart.length === 0);
+    $("product-results").classList.toggle("show", document.activeElement === s || !!s.value || !!state.picking || state.cart.length === 0);
   }
   function changed() {
     pos.classList.toggle("is-empty", state.cart.length === 0);
@@ -194,7 +214,7 @@
     if (state.mode === "partial" && paidNow() <= 0) { showError("Digite quanto o cliente pagou agora, ou escolha “Pagar depois”."); $("paid").focus(); return; }
     var payload = {
       client_token: pos.dataset.token,
-      items: state.cart.map(function (i) { return { product_id: i.id, quantity: i.qty, price: i.price == null ? null : Money.plain(i.price) }; }),
+      items: state.cart.map(function (i) { return { product_id: i.id, size: i.size || null, quantity: i.qty, price: i.price == null ? null : Money.plain(i.price) }; }),
       customer_id: state.customer ? state.customer.id : null, seller_id: seller || null,
       discount: $("discount").value.trim(), discount_type: $("discount-type").value,
       paid: Money.plain(paidNow()), payment_method: state.mode === "later" ? "" : $("method").value,
@@ -219,7 +239,7 @@
   }
 
   // ── eventos
-  $("product-search").addEventListener("input", function () { loadProducts(); updateResultsVisibility(); });
+  $("product-search").addEventListener("input", function () { state.picking = null; loadProducts(); updateResultsVisibility(); });
   $("product-search").addEventListener("focus", updateResultsVisibility);
   $("product-search").addEventListener("blur", function () { setTimeout(updateResultsVisibility, 200); });
   $("product-search").addEventListener("keydown", function (e) {
@@ -234,13 +254,18 @@
     }
   });
   $("product-results").addEventListener("click", function (e) {
+    var sz = e.target.closest("[data-size]"); if (sz && state.picking) { addProduct(state.picking, sz.dataset.size); return; }
+    if (e.target.closest("[data-back]")) { state.picking = null; renderResults(); $("product-search").focus(); return; }
     var b = e.target.closest("[data-idx]"); if (b) addProduct(state.results[+b.dataset.idx]);
+  });
+  $("product-results").addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && state.picking) { state.picking = null; renderResults(); $("product-search").focus(); }
   });
 
   $("cart").addEventListener("click", function (e) {
     var b = e.target.closest("[data-act]"); if (!b) return;
     var row = b.closest(".cart-row"), i = state.cart[+row.dataset.idx], act = b.dataset.act;
-    if (act === "inc") { if (i.stock === null || i.qty < i.stock) i.qty++; else flash("Só há " + i.stock + " " + i.unit + " de “" + i.name + "” em estoque."); }
+    if (act === "inc") { if (i.stock === null || i.qty < i.stock) i.qty++; else flash("Só há " + i.stock + " " + i.unit + " de “" + lineName(i) + "” em estoque."); }
     else if (act === "dec") { i.qty = Math.max(1, i.qty - 1); }
     else if (act === "del") { state.cart.splice(+row.dataset.idx, 1); }
     else return;
@@ -252,7 +277,7 @@
     if (e.target.dataset.act === "qty") {
       var q = parseInt(e.target.value, 10);
       if (isNaN(q) || q < 1) q = 1;
-      if (i.stock !== null && q > i.stock) { flash("Só há " + i.stock + " " + i.unit + " de “" + i.name + "” em estoque."); q = i.stock; }
+      if (i.stock !== null && q > i.stock) { flash("Só há " + i.stock + " " + i.unit + " de “" + lineName(i) + "” em estoque."); q = i.stock; }
       i.qty = q;
     } else if (e.target.dataset.act === "price") {
       var c = Money.parse(e.target.value);
@@ -314,7 +339,7 @@
   var prefill = null;
   try { prefill = pos.dataset.prefill ? JSON.parse(pos.dataset.prefill) : null; } catch (e) {}
   if (prefill) {  // refazer uma venda cancelada: começa já com os itens, o cliente, o desconto e a observação dela
-    state.cart = prefill.items.map(function (i) { return { id: i.id, name: i.name, unit: i.unit, list: i.list, cost: i.cost || 0, price: i.price, qty: i.qty, stock: i.stock }; });
+    state.cart = prefill.items.map(function (i) { return { id: i.id, name: i.name, unit: i.unit, list: i.list, cost: i.cost || 0, price: i.price, qty: i.qty, stock: i.stock, size: i.size || null }; });
     state.customer = prefill.customer; state.mode = "full";
     $("discount").value = prefill.discount || ""; $("notes").value = prefill.notes || "";
     if (prefill.seller) pickSeller(prefill.seller);

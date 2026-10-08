@@ -88,6 +88,7 @@ class SaleItem(Base):
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("owners.id", ondelete="RESTRICT"), index=True)
     product_name: Mapped[str] = mapped_column(String(160))
     product_code: Mapped[str] = mapped_column(String(40))
+    size: Mapped[str | None] = mapped_column(String(10))   # tamanho vendido (cópia do momento da venda)
     unit: Mapped[str] = mapped_column(String(10), default="un")
     quantity: Mapped[int]
     unit_price_cents: Mapped[int]
@@ -96,6 +97,12 @@ class SaleItem(Base):
 
     sale: Mapped[Sale] = relationship(back_populates="items")
     product: Mapped[Product] = relationship()
+
+    @property
+    def label(self) -> str:
+        """Nome para mostrar: "Camiseta · M"."""
+        return f"{self.product_name} · {self.size}" if self.size else self.product_name
+
     owner: Mapped[Owner | None] = relationship(foreign_keys=[owner_id])
 
 

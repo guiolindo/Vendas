@@ -12,7 +12,8 @@
     <span class="sub">Vende sem contar quantidade. Para controlar, <a href="{{ url_for('products.edit', product_id=product.id) }}">edite o produto</a>.</span></div>
   {% else %}
   <div><span class="label">Em estoque</span><span class="value">{{ product.stock_qty|qtd }} <small>{{ product.unit }}</small></span>
-    <span class="sub">{% if product.stock_qty == 0 %}<span class="owe-late">Acabou</span>{% elif product.low_stock %}<span class="owe-soon">Abaixo do mínimo ({{ product.min_stock }})</span>{% else %}Mínimo: {{ product.min_stock }}{% endif %}</span></div>
+    <span class="sub">{% if product.stock_qty == 0 %}<span class="owe-late">Acabou</span>{% elif product.low_stock %}<span class="owe-soon">Abaixo do mínimo ({{ product.min_stock }})</span>{% else %}Mínimo: {{ product.min_stock }}{% endif %}</span>
+    {% if product.has_sizes %}<span class="sub sizes-line">{% for s in product.sizes %}<span class="{{ 'owe-late' if s.stock_qty == 0 }}">{{ s.size }} {{ s.stock_qty|qtd }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</span>{% endif %}</div>
   {% endif %}
   <div><span class="label">Preço de venda</span><span class="value">{{ product.price_cents|brl }}</span><span class="sub">{% if product.cost_cents %}Custou {{ product.cost_cents|brl }} · sobra {{ product.margin_cents|brl }} ({{ product.margin_percent|string|replace('.', ',') }}%){% else %}<span class="owe-soon">Sem custo informado</span>{% endif %}</span></div>
   <div><span class="label">Já vendido</span><span class="value">{{ sold_qty|qtd }}</span><span class="sub">{{ sold_cents|brl }} em vendas</span></div>
@@ -28,6 +29,9 @@
       <div class="body">
         <form method="post" action="{{ url_for('products.stock_action', product_id=product.id) }}" class="pay-form stock-form">
           {{ csrf() }}
+          {% if product.has_sizes %}<div class="field"><label for="stock-size">Qual tamanho?</label><select id="stock-size" name="size" required>
+            <option value="" disabled selected>Escolha o tamanho</option>
+            {% for s in product.sizes %}<option value="{{ s.size }}">{{ s.size }} · {{ s.stock_qty|qtd }} em estoque</option>{% endfor %}</select></div>{% endif %}
           <div class="field"><label for="kind">O que aconteceu?</label><select id="kind" name="kind" data-stock-kind>
             <option value="entrada">Chegou mercadoria</option><option value="ajuste">Contei e o número é outro</option></select></div>
           <div class="field"><label for="q" data-stock-label>Quantidade que chegou</label><input id="q" name="quantity" type="number" min="0" required inputmode="numeric"></div>
@@ -45,13 +49,13 @@
       {% if movements %}<div class="table-wrap"><table class="cards">
         <thead><tr><th>Data</th><th>Tipo</th><th class="right">Qtd.</th><th class="right">Custo (un.)</th><th class="right">Ficou</th><th class="no-print"></th></tr></thead>
         <tbody>{% for m in movements %}<tr class="{{ 'void' if m.voided else '' }}"><td>{{ m.created_at|hora }}</td>
-          <td>{{ m.kind|movement_label }}{% if m.voided %} <span class="badge cancelada">Excluída</span>{% endif %}{% if m.sale_id %} · <a href="{{ url_for('sales.detail', sale_id=m.sale_id) }}">#{{ m.sale_id }}</a>{% endif %}{% if m.note %}<span class="sub">{{ m.note }}</span>{% endif %}{% if m.voided and m.void_reason %}<span class="sub">{{ m.void_reason }}</span>{% endif %}</td>
+          <td>{{ m.kind|movement_label }}{% if m.size %} · <strong>{{ m.size }}</strong>{% endif %}{% if m.voided %} <span class="badge cancelada">Excluída</span>{% endif %}{% if m.sale_id %} · <a href="{{ url_for('sales.detail', sale_id=m.sale_id) }}">#{{ m.sale_id }}</a>{% endif %}{% if m.note %}<span class="sub">{{ m.note }}</span>{% endif %}{% if m.voided and m.void_reason %}<span class="sub">{{ m.void_reason }}</span>{% endif %}</td>
           <td class="right num {{ 'in-money' if m.quantity > 0 and not m.voided else '' }}">{{ '+' if m.quantity > 0 }}{{ m.quantity }}</td>
           <td class="right money">{% if m.unit_cost_cents %}{{ m.unit_cost_cents|brl }}<span class="sub">total {{ m.total_cost_cents|brl }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
           <td class="right num">{{ m.balance_after }}</td>
           <td class="right no-print">{% if m.kind == 'entrada' and not m.voided %}
             <details class="inline-pay"><summary class="link-button danger small">Excluir compra</summary>
-              <form method="post" action="{{ url_for('products.void_purchase', movement_id=m.id) }}" class="pay-form" style="margin-top:.5rem" data-confirm="Excluir esta compra de {{ m.quantity }} {{ product.unit }}? O estoque diminui {{ m.quantity }}.">{{ csrf() }}
+              <form method="post" action="{{ url_for('products.void_purchase', movement_id=m.id) }}" class="pay-form" style="margin-top:.5rem" data-confirm="Excluir esta compra de {{ m.quantity }} {{ product.unit }}{% if m.size %} (tamanho {{ m.size }}){% endif %}? O estoque diminui {{ m.quantity }}.">{{ csrf() }}
                 <div class="field"><label>Motivo <span class="hint">(opcional)</span></label><input name="reason" maxlength="255" placeholder="Lançada por engano"></div>
                 <button class="btn danger small" type="submit">Excluir</button></form></details>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
       {% else %}<div class="empty">Sem movimentação.</div>{% endif %}

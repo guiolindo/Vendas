@@ -29,7 +29,7 @@
       <header><h2>Produtos</h2></header>
       <div class="table-wrap"><table>
         <thead><tr><th>Produto</th><th class="right">Qtd.</th><th class="right">Preço</th><th class="right">Subtotal</th></tr></thead>
-        <tbody>{% for i in sale.items %}<tr><td><a href="{{ url_for('products.detail', product_id=i.product_id) }}">{{ i.product_name }}</a><span class="sub">{{ i.product_code }}</span></td>
+        <tbody>{% for i in sale.items %}<tr><td><a href="{{ url_for('products.detail', product_id=i.product_id) }}">{{ i.label }}</a><span class="sub">{{ i.product_code }}</span></td>
           <td class="right num">{{ i.quantity }} {{ i.unit }}</td><td class="right money">{{ i.unit_price_cents|brl }}</td><td class="right money">{{ i.total_cents|brl }}</td></tr>{% endfor %}</tbody>
         <tfoot>
           {% if sale.discount_cents %}<tr><td colspan="3" class="right">Subtotal</td><td class="right money">{{ sale.subtotal_cents|brl }}</td></tr>
@@ -41,7 +41,7 @@
       <header><h2>Margem desta venda</h2><span class="small muted">Só você vê. Não sai no comprovante.</span></header>
       <div class="table-wrap"><table>
         <thead><tr><th>Produto</th><th class="right">Custou</th><th class="right">Vendeu por</th><th class="right">Margem</th></tr></thead>
-        <tbody>{% for i in sale.items %}{% set im = item_margins[i.id] %}<tr><td>{{ i.product_name }}</td>
+        <tbody>{% for i in sale.items %}{% set im = item_margins[i.id] %}<tr><td>{{ i.label }}</td>
           {% if im.uncosted %}<td class="right muted" colspan="3">sem custo informado, fora da margem</td>
           {% else %}<td class="right money">{{ im.cost|brl }}</td><td class="right money">{{ im.revenue|brl }}</td>
           <td class="right money"><span class="{{ 'owe-late' if im.amount < 0 else 'in-money' }}">{{ im.amount|brl }}</span><span class="margin-pct">{{ im.percent|string|replace('.', ',') }}%</span></td>{% endif %}</tr>{% endfor %}</tbody>

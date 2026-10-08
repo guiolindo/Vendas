@@ -24,6 +24,7 @@ class ItemInput:
     product_id: int
     quantity: int
     unit_price_cents: int | None = None  # None = preço de tabela
+    size: str | None = None              # tamanho (obrigatório se o produto tem tamanhos)
 
 
 @dataclass
@@ -114,7 +115,7 @@ def _create_sale(session: Session, data: SaleInput, user_id: int | None = None) 
 
         ids = {i.product_id for i in data.items}
         products = {p.id: p for p in session.scalars(select(Product).where(Product.id.in_(ids)))}
-        lines: list[tuple[Product, int, int]] = []
+        lines: list[tuple[Product, int, int, str | None]] = []
         for item in data.items:
             product = products.get(item.product_id)
             if product is None:
@@ -126,9 +127,16 @@ def _create_sale(session: Session, data: SaleInput, user_id: int | None = None) 
             price = product.price_cents if item.unit_price_cents is None else item.unit_price_cents
             if price < 0:
                 raise BusinessError(f"Preço inválido para “{product.name}”.", field="items")
-            lines.append((product, item.quantity, price))
+            size = (item.size or "").strip().upper() or None
+            if product.has_sizes and size is None:
+                raise BusinessError(f"Escolha o tamanho de “{product.name}”.", field="items")
+            if product.has_sizes and product.size_row(size) is None:
+                raise BusinessError(f"“{product.name}” não tem o tamanho {size}.", field="items")
+            if size and not product.has_sizes:
+                raise BusinessError(f"“{product.name}” não tem tamanhos.", field="items")
+            lines.append((product, item.quantity, price, size))
 
-        subtotal = sum(qty * price for _, qty, price in lines)
+        subtotal = sum(qty * price for _, qty, price, _ in lines)
         if subtotal <= 0:
             raise BusinessError("O total da venda precisa ser maior que zero.", field="items")
         if subtotal > MAX_CENTS:
@@ -174,19 +182,22 @@ def _create_sale(session: Session, data: SaleInput, user_id: int | None = None) 
             notes=(data.notes or "").strip() or None,
             created_by=user_id,
         )
-        for product, qty, price in lines:
+        for product, qty, price, size in lines:
             sale.items.append(SaleItem(
-                product_id=product.id, owner_id=seller_id, product_name=product.name, product_code=product.code,
+                product_id=product.id, owner_id=seller_id, product_name=product.name, product_code=product.code, size=size,
                 unit=product.unit, quantity=qty, unit_price_cents=price,
                 unit_cost_cents=product.cost_cents, total_cents=qty * price,
             ))
         session.add(sale)
         session.flush()
 
-        for product, qty, _ in sorted(lines, key=lambda l: l[0].id):
-            if not product.track_stock:
-                continue                      # sem controle de estoque: vende sem baixar nada
-            apply_movement(session, product.id, -qty, "venda", sale_id=sale.id, user_id=user_id)
+        # mesmo produto e tamanho em duas linhas: soma antes, para a checagem de estoque ver o total pedido
+        wanted: dict[tuple[int, str], int] = {}
+        for product, qty, _, size in lines:
+            if product.track_stock:           # sem controle de estoque: vende sem baixar nada
+                wanted[(product.id, size or "")] = wanted.get((product.id, size or ""), 0) + qty
+        for (product_id, size), qty in sorted(wanted.items()):
+            apply_movement(session, product_id, -qty, "venda", size=size or None, sale_id=sale.id, user_id=user_id)
 
         if paid > 0:
             session.add(Payment(
@@ -268,12 +279,13 @@ def cancel_sale(session: Session, sale_id: int, reason: str, user_id: int | None
         now = clock.now()
         sale.cancelled_at = now
         sale.cancel_reason = reason[:255]
-        for item in sorted(sale.items, key=lambda i: i.product_id):
+        for item in sorted(sale.items, key=lambda i: (i.product_id, i.size or "")):
             if not session.scalar(select(StockMovement.id).where(
                     StockMovement.sale_id == sale.id, StockMovement.product_id == item.product_id,
-                    StockMovement.kind == "venda")):
+                    StockMovement.kind == "venda", StockMovement.size.is_(None) if item.size is None else StockMovement.size == item.size)
+                    .limit(1)):
                 continue                      # esta venda não baixou estoque (produto sem controle): nada a devolver
-            apply_movement(session, item.product_id, item.quantity, "cancelamento",
+            apply_movement(session, item.product_id, item.quantity, "cancelamento", size=item.size,
                            sale_id=sale.id, note=f"Venda #{sale.id} cancelada", user_id=user_id)
         for payment in sale.payments:
             if not payment.voided:

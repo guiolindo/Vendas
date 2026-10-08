@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from ..domain.money import MoneyError, parse_money
+from ..domain.sizes import SIZES
 from ..domain.text import MAX_ID
 from ..errors import BusinessError
 from ..services.customers import CustomerInput
@@ -14,7 +15,11 @@ from .parsing import Form, parse_percent
 
 def product_from_form(data: Mapping[str, str], creating: bool = False) -> ProductInput:
     f = Form(data)
+    sizes = list(data.getlist("size")) if hasattr(data, "getlist") else ([data["size"]] if data.get("size") else [])
     return ProductInput(
+        sizes=sizes,
+        initial_by_size={s: f.integer(f"initial_stock_{s}", f"Estoque inicial do tamanho {s}") for s in sizes
+                         if s in SIZES} if creating else {},
         name=f.text("name"),
         price_cents=f.money("price", "Preço de venda", required=True),
         cost_cents=f.money("cost", "Custo"),
@@ -63,7 +68,11 @@ def sale_from_json(payload: dict) -> SaleInput:
         except (TypeError, ValueError):
             raise BusinessError("Confira a quantidade dos itens: use números inteiros, de 1 para cima.", field="items") from None
         price = raw.get("price")
-        items.append(ItemInput(product_id, quantity, None if price in (None, "") else _money(price, "Preço", "items")))
+        size = raw.get("size")
+        if size is not None and not isinstance(size, str):
+            raise BusinessError("Um dos itens da venda está com o tamanho inválido. Remova-o e adicione de novo.", field="items")
+        items.append(ItemInput(product_id, quantity, None if price in (None, "") else _money(price, "Preço", "items"),
+                               size=(size or "").strip()[:10] or None))
 
     f = Form({k: ("" if v is None else str(v)) for k, v in payload.items() if not isinstance(v, (list, dict))})
     discount_raw = f.text("discount")

@@ -14,7 +14,7 @@ SORTS = {
 
 def products_query(q: str = "", category_id: int | None = None, status: str = "", stock: str = "",
                    sort: str = "nome", direction: str = "asc") -> Select:
-    query = select(Product).options(selectinload(Product.category))
+    query = select(Product).options(selectinload(Product.category), selectinload(Product.sizes))
     if q.strip():
         term = like(q.strip())
         query = query.where(or_(Product.name.ilike(term, escape="\\"), Product.code.ilike(term, escape="\\"),
@@ -36,7 +36,7 @@ def products_query(q: str = "", category_id: int | None = None, status: str = ""
 def search_for_sale(session: Session, q: str, limit: int = 12) -> list[Product]:
     """Busca do PDV. Código/SKU exato vem primeiro; sem texto, mostra os mais vendidos."""
     q = q.strip()
-    base = select(Product).where(Product.active.is_(True))
+    base = select(Product).options(selectinload(Product.sizes)).where(Product.active.is_(True))
     if not q:
         sold = (select(SaleItem.product_id, func.sum(SaleItem.quantity).label("qty"))
                 .join(Sale, Sale.id == SaleItem.sale_id).where(Sale.cancelled_at.is_(None))

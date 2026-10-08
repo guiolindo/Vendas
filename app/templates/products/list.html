@@ -29,7 +29,7 @@
       <td class="right money">{{ p.price_cents|brl }}</td>
       <td class="right money">{{ p.cost_cents|brl if p.cost_cents else '—' }}</td>
       <td class="right money">{% if p.cost_cents %}<span class="{{ 'owe-late' if p.margin_cents < 0 else '' }}">{{ p.margin_cents|brl }}</span><span class="margin-pct">{{ p.margin_percent|string|replace('.', ',') }}%</span>{% else %}<span class="badge baixo">sem custo</span>{% endif %}</td>
-      {% if p.track_stock %}<td class="right num">{{ p.stock_qty|qtd }} {{ p.unit }}</td>
+      {% if p.track_stock %}<td class="right num">{{ p.stock_qty|qtd }} {{ p.unit }}{% if p.sizes %}<span class="sub">{% for s in p.sizes %}{{ s.size }} {{ s.stock_qty }}{% if not loop.last %} · {% endif %}{% endfor %}</span>{% endif %}</td>
       <td class="right">{% if p.stock_qty == 0 %}<span class="badge zerado">Acabou</span>{% elif p.low_stock %}<span class="badge baixo">Baixo</span>{% endif %}</td>
       {% else %}<td class="right muted" colspan="2">Sem controle</td>{% endif %}</tr>
     {% endfor %}</tbody></table></div>

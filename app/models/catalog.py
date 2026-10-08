@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text, true
+from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .. import clock
@@ -52,6 +52,15 @@ class Product(Base):
     created_at: Mapped[datetime] = mapped_column(default=clock.now)
 
     category: Mapped[Category | None] = relationship()
+    sizes: Mapped[list["ProductSize"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan", order_by="ProductSize.position")
+
+    @property
+    def has_sizes(self) -> bool:
+        return bool(self.sizes)
+
+    def size_row(self, size: str | None):
+        return next((s for s in self.sizes if s.size == size), None)
 
     @property
     def low_stock(self) -> bool:
@@ -67,6 +76,24 @@ class Product(Base):
         if self.price_cents <= 0 or self.cost_cents <= 0:
             return None
         return round(self.margin_cents * 100 / self.price_cents, 1)
+
+
+class ProductSize(Base):
+    """Tamanho de um produto, com o saldo de estoque DELE. O saldo do produto (`Product.stock_qty`) é a soma deles."""
+
+    __tablename__ = "product_sizes"
+    __table_args__ = (
+        UniqueConstraint("product_id", "size", name="uq_product_sizes_product_size"),
+        CheckConstraint("stock_qty >= 0", name="size_stock_non_negative"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    size: Mapped[str] = mapped_column(String(10))
+    position: Mapped[int] = mapped_column(default=0)   # P, M, G, GG nessa ordem
+    stock_qty: Mapped[int] = mapped_column(default=0)
+
+    product: Mapped["Product"] = relationship(back_populates="sizes")
 
 
 MOVEMENT_KINDS = {
@@ -87,7 +114,8 @@ class StockMovement(Base):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="RESTRICT"), index=True)
     kind: Mapped[str] = mapped_column(String(20))
     quantity: Mapped[int]  # com sinal: negativo = saída
-    balance_after: Mapped[int]
+    size: Mapped[str | None] = mapped_column(String(10))   # tamanho movimentado (None = produto sem tamanhos)
+    balance_after: Mapped[int]                             # saldo depois: do tamanho, se houver; senão do produto
     sale_id: Mapped[int | None] = mapped_column(ForeignKey("sales.id", ondelete="RESTRICT"), index=True)
     note: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(default=clock.now)

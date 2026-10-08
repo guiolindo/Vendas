@@ -16,13 +16,23 @@
   cost.addEventListener("input", show); price.addEventListener("input", show); show();
 })();
 
-/* "Controlar estoque": esconde os campos de quantidade quando o produto não terá estoque. */
+/* Estoque e tamanhos: mostra só os campos que fazem sentido para o que a pessoa marcou. */
 (function () {
   "use strict";
-  var box = document.getElementById("f-track");
-  if (!box) return;
+  var track = document.getElementById("f-track");
+  if (!track) return;
+  var boxes = Array.prototype.slice.call(document.querySelectorAll("input[data-size]"));
   function sync() {
-    Array.prototype.forEach.call(document.querySelectorAll("[data-stock-only]"), function (el) { el.hidden = !box.checked; });
+    var any = boxes.some(function (b) { return b.checked; });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-stock-only]"), function (el) {
+      el.hidden = !track.checked || (el.hasAttribute("data-unsized-only") && any);
+    });
+    boxes.forEach(function (b) {
+      var field = b.closest(".size-opt").querySelector("[data-size-stock]");
+      if (field) field.hidden = !(track.checked && b.checked);
+    });
   }
-  box.addEventListener("change", sync); sync();
+  track.addEventListener("change", sync);
+  boxes.forEach(function (b) { b.addEventListener("change", sync); });
+  sync();
 })();

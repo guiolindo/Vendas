@@ -11,10 +11,23 @@
   <label class="check stock-toggle"><input type="checkbox" name="track_stock" id="f-track" {% if tracked %}checked{% endif %}>
     <span><strong>Controlar o estoque deste produto</strong>
     <span class="hint">Ligado: cada venda baixa a quantidade e avisa quando acabar. Desligado: vende sem limite, sem contar.</span></span></label>
+  {% set cur = (product.sizes|map(attribute='size')|list) if product else [] %}
+  {% set picked = v.getlist('size') if v else cur %}
+  <fieldset class="size-pick"><legend>Tamanhos <span class="hint">(deixe sem marcar se o produto não tem tamanho)</span></legend>
+    <div class="size-grid">
+      {% for s in SIZES %}<div class="size-opt">
+        <label><input type="checkbox" name="size" value="{{ s }}" data-size {% if s in picked %}checked{% endif %}><span>{{ s }}</span></label>
+        {% if not product %}<input class="size-stock" data-size-stock name="initial_stock_{{ s }}" type="number" min="0" inputmode="numeric" placeholder="Estoque"
+             aria-label="Estoque inicial do tamanho {{ s }}" value="{{ v.get('initial_stock_' ~ s, '') }}" {% if s not in picked or not tracked %}hidden{% endif %}>
+        {% elif product.track_stock and product.size_row(s) %}<small class="muted">{{ product.size_row(s).stock_qty }} em estoque</small>{% endif %}
+      </div>{% endfor %}
+    </div>
+    <p class="help">Preço e custo são os mesmos em todos os tamanhos. {% if not product %}Embaixo de cada tamanho marcado, digite quantos você tem em estoque.{% else %}O estoque é contado por tamanho{% endif %}{% if product %}; para mudar a quantidade de um tamanho, use “Atualizar estoque” na página do produto{% endif %}.</p>
+  </fieldset>
   <div class="grid" data-margin-form>
     {{ money_field('Quanto custou pra você', 'cost', v, error_field, (product.cost_cents|brl_plain) if product else '', help=('Se mudar, vale só para as próximas vendas. As vendas já feitas continuam com o custo da época.' if product else 'O que você pagou pelo produto. É com isso que o sistema calcula a sua margem.')) }}
     {{ money_field('Preço de venda', 'price', v, error_field, (product.price_cents|brl_plain) if product else '', required=true, help=('Vale só para as próximas vendas.' if product else '')) }}
-    {% if not product %}<div data-stock-only {% if not tracked %}hidden{% endif %}>{{ field('Estoque inicial', 'initial_stock', v, error_field, '', type='number', placeholder='0', attrs='min="0" inputmode="numeric"') }}</div>{% endif %}
+    {% if not product %}<div data-stock-only data-unsized-only {% if not tracked or picked %}hidden{% endif %}>{{ field('Estoque inicial', 'initial_stock', v, error_field, '', type='number', placeholder='0', attrs='min="0" inputmode="numeric"') }}</div>{% endif %}
   </div>
   <p class="margin-preview" id="margin-preview" aria-live="polite" hidden></p>
   <details class="more" style="margin-top:1rem" {% if error_field in ('code','sku','cost','min_stock','unit') or product %}open{% endif %}><summary>Mais detalhes</summary>

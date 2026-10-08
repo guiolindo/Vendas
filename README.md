@@ -64,6 +64,16 @@ No primeiro acesso o sistema pergunta se você quer controlar o estoque. A respo
 - **Com controle:** cada venda baixa a quantidade (nunca fica negativa, nem com duas vendas ao mesmo tempo) e o sistema avisa quando chegar ao mínimo.
 - Ligar o controle depois: o estoque começa com o que estiver registrado (zero); lance a quantidade em "Contei e o número é outro". Vendas antigas, feitas sem controle, não devolvem estoque se forem canceladas.
 
+## Produtos com tamanhos
+
+No cadastro do produto, marque os tamanhos que ele tem: **P, M, G, GG** (ou nenhum, para produto sem tamanho). O preço e o custo são os mesmos em todos os tamanhos; o **estoque é contado por tamanho**.
+
+- **Na venda:** ao tocar no produto, o sistema pergunta o tamanho, mostrando quantos há de cada um (o que acabou fica desabilitado). O carrinho, o comprovante e a lista de vendas mostram "Camiseta · M".
+- **Estoque:** compra, contagem e exclusão de compra pedem o tamanho. O saldo do produto é a soma dos tamanhos, e cancelar uma venda devolve cada peça ao tamanho certo.
+- **Editar:** dá para acrescentar tamanhos a qualquer momento. Só dá para tirar um tamanho com o estoque dele zerado. Um produto que já tem estoque sem tamanho precisa ser zerado antes de passar a ter tamanhos.
+- **Sem controle de estoque:** o tamanho continua sendo pedido na venda (para o comprovante), mas nada baixa.
+- **Relatórios:** "Vendas por produto" separa por tamanho; "Estoque" ganha a coluna "Por tamanho". O aviso de estoque baixo e o estoque mínimo valem para o total do produto.
+
 ## Pix no comprovante
 
 Em **Configurações**, preencha a **chave Pix** (e, se quiser, o nome de quem recebe). O comprovante da venda e o recibo de pagamento passam a mostrar um quadro "Pagar por Pix" com a chave e o valor que ainda falta, em A4 e em bobina de 80 mm. Venda quitada ou cancelada não mostra o quadro. O sistema só exibe a chave: não gera QR Code nem confere se a chave existe.
